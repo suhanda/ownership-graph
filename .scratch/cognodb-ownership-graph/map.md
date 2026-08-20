@@ -76,6 +76,7 @@ semantic commits.
 - [Provision CognoDB and prove a Bolt round-trip](issues/01-provision-cognodb-and-prove-bolt.md) — live instance confirmed at Bolt 5.4 on `neo4j-driver@5.28.3`; parameterised round-trip, full-text indexes, `shortestPath` and `reduce()` over variable-length paths all work. But **CognoDB is not Neo4j**: no APOC, no GDS, no introspection procedures, and variable-length paths use node uniqueness, so the obvious cycle-detection phrasings silently return zero rows.
 - [Design the ownership graph model](issues/02-design-the-ownership-graph-model.md) — six labels (Person, Company, Jurisdiction, Address, Intermediary, Watchlist) and ten relationship types; percentage rides on `:OWNS`, legal form is a property, one `:OFFICER_OF` carries a role. Glossary in `CONTEXT.md`, Mermaid diagram in the ticket. All eight signature patterns verified live — **and hub nodes were found to poison the hidden-link query**, so link-finding must constrain relationship types.
 - [Choose the signature query set](issues/05-choose-the-signature-query-set.md) — six queries (beneficial owners _(hero)_, ownership cycles, hidden link, watchlist control, nominee unmasking, shared registration) plus `resolveEntity` and `neighbourhood` primitives, all verified live. The hub allowlist is proven. **Variable-length bounds and labels cannot be parameterised**, so bounds are fixed at 6 in text and narrowed via `WHERE length(p) <= $maxDepth` — this is how the no-concatenation rule is honoured.
+- [Scaffold the monorepo and toolchain](issues/04-scaffold-the-monorepo-and-toolchain.md) — pnpm workspace with `apps/api` (NestJS), `apps/web` (Next.js), `packages/shared` (Zod). Vertical slice verified live: RSC → NestJS → CognoDB reports Bolt 5.4. TypeScript pinned to **5.9.3** (TS 7 breaks NestJS decorators), shared package ships CommonJS, API on **port 3101**. GitHub repo deliberately not created — outward-facing, needs the user's call.
 
 Locked during charting, before any ticket existed:
 
@@ -101,7 +102,8 @@ Locked during charting, before any ticket existed:
   What is still unwritten is the actual relational schema to show alongside it and how much SQL to
   include before it stops being persuasive. Graduates when the README is drafted.
 - **Submission package.** Screenshots, how the data-model diagram gets rendered, the screen-recording
-  script and length, repo visibility and how Wexa gets access. Waits on a running hosted app.
+  script and length, repo visibility and how Wexa gets access — plus whether `.scratch/` (this map and
+  its tickets) ships with the repo or is stripped first. Waits on a running hosted app.
 - **Whether the app writes.** Everything so far is read-only exploration; a "record a new ownership stake"
   flow might strengthen it or might just burn clock. Undecided.
 

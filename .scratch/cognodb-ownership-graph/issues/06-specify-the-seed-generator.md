@@ -1,7 +1,7 @@
 # Specify the seed generator
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 02, 05
 
 ## Question
