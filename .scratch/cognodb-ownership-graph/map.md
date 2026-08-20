@@ -71,6 +71,10 @@ components with `pnpm dlx shadcn@4.18.0 add <name>` rather than hand-rolling. De
 substitute colours without re-running the dataviz validator. Note `--accent` is a hover surface, not the
 brand hue; `--primary` is the brand hue.
 
+**The chat may only reach `apps/api/src/graph/graph.port.ts`.** That interface is the whole surface —
+it is what makes "the model never writes Cypher" structural rather than conventional. Do not give the
+chat layer the driver or a raw-query escape hatch.
+
 **Standing preferences.** Global `CLAUDE.md` applies: TypeScript strict with no `any`, Zod validation at
 every I/O edge, RSC-first, `'use client'` pushed to the leaves, named exports except for pages/layouts,
 semantic commits.
@@ -85,6 +89,8 @@ semantic commits.
 - [Scaffold the monorepo and toolchain](issues/04-scaffold-the-monorepo-and-toolchain.md) — pnpm workspace with `apps/api` (NestJS), `apps/web` (Next.js), `packages/shared` (Zod). Vertical slice verified live: RSC → NestJS → CognoDB reports Bolt 5.4. TypeScript pinned to **5.9.3** (TS 7 breaks NestJS decorators), shared package ships CommonJS, API on **port 3101**. GitHub repo deliberately not created — outward-facing, needs the user's call.
 - [Specify the seed generator](issues/06-specify-the-seed-generator.md) — 3,607 nodes / 15,350 relationships from a fixed seed, layered DAG so the only cycle is the planted one. The scandal: two Northgate Transit Extension bidders tracing to sanctioned **Konstantin Belov** at 76.5% (4 hops) and 35.7% (5 hops), their parents sharing an address, agent and director. Loader self-verifies with the production queries. **The hero query takes ~1s warm, ~2s cold.**
 - [Prototype the explorer UI](issues/08-prototype-the-explorer-ui.md) — three-column shell (questions · graph · chat); **position encodes ownership depth**, not a force layout; the ~1s hero latency is narrated layer-by-layer rather than spinner-ed; hub size shown so link strength is judgeable. Palette validated across all pairs in both themes. Component layer is **shadcn/ui**, verified on Next 16 / React 19 / Tailwind 4. [Prototype](https://claude.ai/code/artifact/124093de-9c50-4a1c-a5ba-a33cc03c7ccc)
+- [Design the chat tool set and Claude contract](issues/07-design-the-chat-tool-set-and-claude-contract.md) — eight tools over the signature queries, written as code in `packages/shared/src/chat.ts` and `apps/api/src/chat/tools.ts`. `claude-opus-5`, adaptive thinking, effort `low`, streaming via the SDK **Tool Runner** (`betaZodTool` + `toolRunner`). The chart repaints on `tool_result`, before narration. Public-demo ceiling: per-IP limit, 6 tool turns, daily budget with graceful degradation to preset questions.
+- [Research hosting for a persistent Bolt client](issues/03-research-hosting-for-a-persistent-bolt-client.md) — **Fly.io** (512 MB, autostop off, $3.32/mo) for the API; Vercel for the web. Render Free disqualified by a 15-min spin-down and ~60 s cold wake; Railway Free restricts outbound ports on Limited Trial. API measures ~100 MB RSS. Write-up in [`docs/hosting.md`](../../docs/hosting.md).
 
 Locked during charting, before any ticket existed:
 
