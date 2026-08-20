@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import neo4j, { Driver, type Record as Neo4jRecord } from 'neo4j-driver';
 import { loadEnv } from '../config/env';
+import { API_ERROR_MESSAGE } from '@ownership/shared';
+import { classifyDriverError, DatabaseError } from './database.exception';
 
 /** The three honest states from ticket 01 — the driver cannot distinguish more than this. */
 export type DatabaseStatus = 'reachable' | 'unreachable' | 'misconfigured';
@@ -28,10 +30,16 @@ export class CognoDbService implements OnModuleInit, OnModuleDestroy {
       env.COGNODB_URI,
       neo4j.auth.basic(env.COGNODB_USER, env.COGNODB_PASSWORD),
       {
-        connectionTimeout: 8_000,
-        connectionAcquisitionTimeout: 10_000,
+        // Measured cold connect is ~1.5s (ticket 01), so 5s is generous without making a dead
+        // database feel like a hung app. connectionTimeout is honoured to the millisecond.
+        connectionTimeout: 5_000,
+        connectionAcquisitionTimeout: 6_000,
+        // CognoDB's free tier caps at 200 connections. One Fly machine with 20 leaves ample
+        // headroom, and is more than a burstable 0.5 vCPU instance can usefully serve at once.
         maxConnectionPoolSize: 20,
-        maxTransactionRetryTime: 6_000,
+        // Only applies to executeRead/executeWrite, which read() deliberately does not use.
+        // Kept low so it cannot silently stretch a failure if that ever changes.
+        maxTransactionRetryTime: 3_000,
       },
     );
     this.logger.log('CognoDB driver created (connection is established lazily)');
@@ -47,7 +55,14 @@ export class CognoDbService implements OnModuleInit, OnModuleDestroy {
     return this.driver;
   }
 
-  /** Runs a read query with parameters. Cypher text is always a literal — never built by concatenation. */
+  /**
+   * Runs a read query with parameters. Cypher text is always a literal — never concatenated.
+   *
+   * Uses `session.run` rather than `executeRead` on purpose. `ServiceUnavailable` is flagged
+   * `retriable: true` (ticket 01), so `executeRead` would burn its whole retry window before
+   * surfacing anything — turning a dead database into an app that merely appears hung. Failing
+   * fast and letting the UI own the retry is both more honest and more responsive.
+   */
   async read<T>(
     cypher: string,
     params: Record<string, unknown>,
@@ -57,6 +72,8 @@ export class CognoDbService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await session.run(cypher, params);
       return result.records.map(map);
+    } catch (error) {
+      throw new DatabaseError(classifyDriverError(error), error);
     } finally {
       await session.close();
     }
@@ -81,24 +98,13 @@ export class CognoDbService implements OnModuleInit, OnModuleDestroy {
 /**
  * Bad hostname, refused connection and network timeout are byte-identical `ServiceUnavailable`
  * errors — measured in ticket 01 — so the API must not pretend to diagnose which one it is.
- * Ticket 09 refines what the UI does with each state.
+ * Copy comes from the shared API_ERROR_MESSAGE so the health endpoint, the error responses and the
+ * UI all tell the user the same story.
  */
 function classify(error: unknown): ConnectionReport {
-  const code = (error as { code?: string } | null)?.code;
-  if (code === 'Neo.ClientError.Security.Unauthorized') {
-    return {
-      status: 'misconfigured',
-      detail: 'Authentication failed — check COGNODB_USER and COGNODB_PASSWORD.',
-    };
-  }
-  if (code === 'ServiceUnavailable') {
-    return {
-      status: 'unreachable',
-      detail: 'Database is unreachable. The URI may be wrong, or the instance may be down.',
-    };
-  }
+  const kind = classifyDriverError(error);
   return {
-    status: 'misconfigured',
-    detail: (error as Error | null)?.message ?? 'Unknown driver error.',
+    status: kind === 'database_unreachable' ? 'unreachable' : 'misconfigured',
+    detail: API_ERROR_MESSAGE[kind],
   };
 }

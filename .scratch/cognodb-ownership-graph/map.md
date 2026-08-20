@@ -91,6 +91,7 @@ semantic commits.
 - [Prototype the explorer UI](issues/08-prototype-the-explorer-ui.md) — three-column shell (questions · graph · chat); **position encodes ownership depth**, not a force layout; the ~1s hero latency is narrated layer-by-layer rather than spinner-ed; hub size shown so link strength is judgeable. Palette validated across all pairs in both themes. Component layer is **shadcn/ui**, verified on Next 16 / React 19 / Tailwind 4. [Prototype](https://claude.ai/code/artifact/124093de-9c50-4a1c-a5ba-a33cc03c7ccc)
 - [Design the chat tool set and Claude contract](issues/07-design-the-chat-tool-set-and-claude-contract.md) — eight tools over the signature queries, written as code in `packages/shared/src/chat.ts` and `apps/api/src/chat/tools.ts`. `claude-opus-5`, adaptive thinking, effort `low`, streaming via the SDK **Tool Runner** (`betaZodTool` + `toolRunner`). The chart repaints on `tool_result`, before narration. Public-demo ceiling: per-IP limit, 6 tool turns, daily budget with graceful degradation to preset questions.
 - [Research hosting for a persistent Bolt client](issues/03-research-hosting-for-a-persistent-bolt-client.md) — **Fly.io** (512 MB, autostop off, $3.32/mo) for the API; Vercel for the web. Render Free disqualified by a 15-min spin-down and ~60 s cold wake; Railway Free restricts outbound ports on Limited Trial. API measures ~100 MB RSS. Write-up in [`docs/hosting.md`](../../docs/hosting.md).
+- [Define database-unreachable behaviour](issues/09-define-database-unreachable-behaviour.md) — three honest states (`database_unreachable` 503, `database_misconfigured` 500, `query_failed` 500); "no results" is a 200, not an error. API **starts degraded, never crash-loops** — verified staying up against a dead host. `session.run` not `executeRead`, because `retriable: true` would hide a dead database behind a retry window. UI gets a retry button plus a backing-off poll.
 
 Locked during charting, before any ticket existed:
 
@@ -101,25 +102,16 @@ Locked during charting, before any ticket existed:
 
 ## Not yet specified
 
-- **Implementation slices.** Once the model, query set and UI are locked, how the build splits into
-  vertical slices (graph read layer → API endpoints → UI → chat) and in what order. Too coarse to slice now.
-- **Node-count ceiling and expansion.** The prototype renders hand-positioned subgraphs of 4–9 nodes.
-  Unknown: how the layered layout behaves for `watchlistControl`'s 120 results, and what click-to-expand
-  does once a user roams off the planted scenario into the wider 3,607-node graph.
-- **How a chat answer meets the chart.** Does a tool result highlight a path in the existing graph, replace
-  the graph, or open a side panel? Genuinely undecided and it shapes both components. Waits on the UI prototype.
-- **Theme toggling.** shadcn drives dark mode from a `.dark` class rather than `prefers-color-scheme`,
-  so the app needs `next-themes` or equivalent wiring. Not yet done, and it interacts with how the
-  ECharts instance re-reads its colours on theme change.
-- **The "Why a graph database?" argument.** The query set is settled, so the shape is now clear — the
-  comparison is a recursive CTE with percentage arithmetic, plus cycle detection, plus shortest path.
-  What is still unwritten is the actual relational schema to show alongside it and how much SQL to
-  include before it stops being persuasive. Graduates when the README is drafted.
-- **Submission package.** Screenshots, how the data-model diagram gets rendered, the screen-recording
-  script and length, repo visibility and how Wexa gets access — plus whether `.scratch/` (this map and
-  its tickets) ships with the repo or is stripped first. Waits on a running hosted app.
-- **Whether the app writes.** Everything so far is read-only exploration; a "record a new ownership stake"
-  flow might strengthen it or might just burn clock. Undecided.
+<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
+
+- **Node-count ceiling and expansion.** How the depth-layered layout behaves for `watchlistControl`'s
+  120 results, and what click-to-expand does once a user roams off the planted scenario into the wider
+  3,607-node graph. Carried inside the UI ticket as an open question rather than pre-decided.
+- **Whether the app writes.** Everything so far is read-only exploration. A "record a new ownership
+  stake" flow might strengthen the submission or might just burn clock. Still undecided, and it stays
+  out of the implementation tickets until it isn't.
+- **How much SQL the "Why a graph database?" section should show** before it stops being persuasive.
+  Carried inside the README ticket.
 
 ## Out of scope
 
