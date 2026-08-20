@@ -1,0 +1,29 @@
+{
+  "name": "@ownership/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.1",
+    "@nestjs/config": "4.0.4",
+    "@nestjs/core": "11.2.1",
+    "@nestjs/platform-express": "11.2.1",
+    "@ownership/shared": "workspace:*",
+    "dotenv": "17.2.3",
+    "neo4j-driver": "5.28.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "11.0.10",
+    "@types/express": "5.0.1",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}
