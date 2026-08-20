@@ -93,6 +93,7 @@ semantic commits.
 - [Research hosting for a persistent Bolt client](issues/03-research-hosting-for-a-persistent-bolt-client.md) — **Fly.io** (512 MB, autostop off, $3.32/mo) for the API; Vercel for the web. Render Free disqualified by a 15-min spin-down and ~60 s cold wake; Railway Free restricts outbound ports on Limited Trial. API measures ~100 MB RSS. Write-up in [`docs/hosting.md`](../../docs/hosting.md).
 - [Define database-unreachable behaviour](issues/09-define-database-unreachable-behaviour.md) — three honest states (`database_unreachable` 503, `database_misconfigured` 500, `query_failed` 500); "no results" is a 200, not an error. API **starts degraded, never crash-loops** — verified staying up against a dead host. `session.run` not `executeRead`, because `retriable: true` would hide a dead database behind a retry window. UI gets a retry button plus a backing-off poll.
 - [Build the graph read layer and endpoints](issues/10-build-the-graph-read-layer-and-endpoints.md) — eight endpoints live against the seeded graph; hero returns Belov at 76.5%, 4 hops. **Each drawable query returns rows and subgraph in one round trip** (1,306 ms combined vs 2,215 ms split; parallelism doesn't help because 0.5 vCPU serialises). Caught: Zod `.optional()` rejects Cypher's `null`, which 500'd five endpoints.
+- [Build the explorer UI](issues/11-build-the-explorer-ui.md) — three-column shell live against real data; first paint is server-rendered and already shows Belov at 76.5%. Positions computed from ownership depth (four layouts, no force). Loading narrates the traversal, error state retries with backoff, theme toggle re-reads chart tokens. ECharts dynamically imported — 302 KB gz deferred, initial payload 319 KB gz.
 
 Locked during charting, before any ticket existed:
 
@@ -105,10 +106,10 @@ Locked during charting, before any ticket existed:
 
 <!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
 
-- **Click-to-expand behaviour.** The result-size half is answered — `watchlistControl` now caps
-  collected paths and returns 22 nodes, so no answer arrives too big to draw. Still open: what happens
-  when a user expands outward from a node repeatedly and roams off the planted scenario into the wider
-  3,607-node graph. Carried inside the UI ticket.
+- **Sustained roaming.** Click-to-expand is built and every answer is capped (neighbours at 40,
+  watchlist at 22), so nothing arrives too big to draw. Untested: what the layered layout looks like
+  after a user expands repeatedly into a dense part of the 3,607-node graph. Worth checking during the
+  recording rehearsal rather than pre-solving.
 - **Whether the app writes.** Everything so far is read-only exploration. A "record a new ownership
   stake" flow might strengthen the submission or might just burn clock. Still undecided, and it stays
   out of the implementation tickets until it isn't.
