@@ -92,6 +92,7 @@ semantic commits.
 - [Design the chat tool set and Claude contract](issues/07-design-the-chat-tool-set-and-claude-contract.md) — eight tools over the signature queries, written as code in `packages/shared/src/chat.ts` and `apps/api/src/chat/tools.ts`. `claude-opus-5`, adaptive thinking, effort `low`, streaming via the SDK **Tool Runner** (`betaZodTool` + `toolRunner`). The chart repaints on `tool_result`, before narration. Public-demo ceiling: per-IP limit, 6 tool turns, daily budget with graceful degradation to preset questions.
 - [Research hosting for a persistent Bolt client](issues/03-research-hosting-for-a-persistent-bolt-client.md) — **Fly.io** (512 MB, autostop off, $3.32/mo) for the API; Vercel for the web. Render Free disqualified by a 15-min spin-down and ~60 s cold wake; Railway Free restricts outbound ports on Limited Trial. API measures ~100 MB RSS. Write-up in [`docs/hosting.md`](../../docs/hosting.md).
 - [Define database-unreachable behaviour](issues/09-define-database-unreachable-behaviour.md) — three honest states (`database_unreachable` 503, `database_misconfigured` 500, `query_failed` 500); "no results" is a 200, not an error. API **starts degraded, never crash-loops** — verified staying up against a dead host. `session.run` not `executeRead`, because `retriable: true` would hide a dead database behind a retry window. UI gets a retry button plus a backing-off poll.
+- [Build the graph read layer and endpoints](issues/10-build-the-graph-read-layer-and-endpoints.md) — eight endpoints live against the seeded graph; hero returns Belov at 76.5%, 4 hops. **Each drawable query returns rows and subgraph in one round trip** (1,306 ms combined vs 2,215 ms split; parallelism doesn't help because 0.5 vCPU serialises). Caught: Zod `.optional()` rejects Cypher's `null`, which 500'd five endpoints.
 
 Locked during charting, before any ticket existed:
 
@@ -104,9 +105,10 @@ Locked during charting, before any ticket existed:
 
 <!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
 
-- **Node-count ceiling and expansion.** How the depth-layered layout behaves for `watchlistControl`'s
-  120 results, and what click-to-expand does once a user roams off the planted scenario into the wider
-  3,607-node graph. Carried inside the UI ticket as an open question rather than pre-decided.
+- **Click-to-expand behaviour.** The result-size half is answered — `watchlistControl` now caps
+  collected paths and returns 22 nodes, so no answer arrives too big to draw. Still open: what happens
+  when a user expands outward from a node repeatedly and roams off the planted scenario into the wider
+  3,607-node graph. Carried inside the UI ticket.
 - **Whether the app writes.** Everything so far is read-only exploration. A "record a new ownership
   stake" flow might strengthen the submission or might just burn clock. Still undecided, and it stays
   out of the implementation tickets until it isn't.
