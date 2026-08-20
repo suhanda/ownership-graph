@@ -78,3 +78,38 @@ Overriding this decision is a one-line change to the deploy target.
   — if it ever becomes load-bearing, add a cheaper liveness route and keep `/health` for the UI.
 
 **Status: resolved.** Unblocks the database-unreachable behaviour ticket.
+
+## Superseded — Render chosen instead of Fly
+
+The user chose **Render free for the API, Vercel for the web app**, at $0. The research above stands;
+the choice changed. Recorded here rather than rewritten, because the reasoning that ruled Render out
+is still the reasoning you have to live with.
+
+Additional facts verified when revisiting:
+
+| | Render Free | Render Starter |
+|---|---|---|
+| CPU / RAM | **0.1 CPU** / 512 MB | 0.5 CPU / 512 MB |
+| Idle | spins down after 15 min, ~60 s wake | no spin-down |
+| Outbound 7687 | allowed (only SMTP 25/465/587 blocked) | allowed |
+
+Render's paid pricing could not be verified — the pricing page is JavaScript-rendered and returns only
+navigation to a fetch. Check it before assuming a Starter figure.
+
+**Why this shape works despite the earlier objection.** The 750 free instance-hours are per
+*workspace*, not per service, and a month is ~744 hours — enough for exactly **one** service running
+continuously. Putting only the API on Render, with the web app on Vercel (which does not spin down and
+is free here), means the quota covers the API around the clock with a keep-warm ping, and Next.js
+server-rendering never runs on a 0.1 CPU box.
+
+**Two risks accepted, and they should be watched:**
+
+1. Render states it may suspend a free service generating *"unusually high volumes of outbound
+   traffic, including external database access."* That is exactly what this API does. Demo traffic is
+   low, so it is unlikely to trip — but it is a stated risk against our actual workload, and if the
+   API goes quiet during review this is the first thing to check.
+2. The quota has no headroom. Keeping the API awake consumes essentially all 750 hours, so a second
+   free service anywhere in the workspace will push it over and suspend the API until the month rolls.
+
+If either bites, the fallback is Render Starter or the original Fly plan — both remove the spin-down
+and the quota entirely.

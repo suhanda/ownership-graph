@@ -1,0 +1,31 @@
+# Render's free tier spins a service down after 15 minutes idle and takes ~60s to wake. For a demo
+# link that gets clicked at an unpredictable time, that first minute is the whole first impression —
+# so keeping the API awake is load-bearing, not housekeeping.
+#
+# GitHub's scheduled runs are best-effort and can be delayed by 10+ minutes under load, which is
+# uncomfortably close to the 15-minute window. Treat this as the backup and point a dedicated
+# uptime monitor (UptimeRobot's free tier polls every 5 minutes) at the same URL as the primary.
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the API health endpoint
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "API_URL repository variable is not set; nothing to ping."
+            exit 0
+          fi
+          code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 90 "$API_URL/health")
+          echo "HTTP $code"
+          cat /tmp/health.json
+          # A non-200 is worth surfacing: it means the service is down, not merely asleep.
+          [ "$code" = "200" ]

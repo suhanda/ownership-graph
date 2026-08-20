@@ -1,0 +1,35 @@
+# Render Blueprint — API only. The Next.js app is deployed on Vercel, because Render's free
+# allowance of 750 instance-hours is per *workspace* and only covers one always-on service, and
+# because server-rendering on a 0.1 CPU free instance would be slow.
+#
+# See docs/hosting.md and .scratch/cognodb-ownership-graph/issues/03-*.md for the trade-offs.
+services:
+  - type: web
+    name: ownership-graph-api
+    runtime: node
+    plan: free
+    # The CognoDB instance resolves to <redacted> — Washington DC (Google Cloud). Round-trip
+    # from a development machine in Asia is 234ms, which is precisely the query floor observed
+    # throughout development. Co-locating the API removes that from every single query.
+    region: virginia
+    # Build from the repo root: apps/api depends on the @ownership/shared workspace package.
+    # --prod=false is deliberate: Render sets NODE_ENV=production, which would make pnpm skip the
+    # devDependencies that `tsc` and `nest build` live in, and the build would fail at the first step.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @ownership/shared build && pnpm --filter @ownership/api build
+    startCommand: pnpm --filter @ownership/api start
+    healthCheckPath: /health
+    envVars:
+      - key: COGNODB_URI
+        sync: false # set in the dashboard; never committed
+      - key: COGNODB_USER
+        value: cognodb
+      - key: COGNODB_PASSWORD
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false # the Vercel production domain
+      - key: CHAT_DAILY_TOKEN_BUDGET
+        value: '300000'
+      - key: CHAT_RATE_LIMIT
+        value: '8'
