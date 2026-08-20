@@ -1,7 +1,7 @@
 # Design the chat tool set and Claude contract
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 05
 
 ## Question

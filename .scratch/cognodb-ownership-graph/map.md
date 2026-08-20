@@ -65,6 +65,12 @@ UI copy, chat tool names and the README, so one vocabulary runs through the whol
 - `/frontend-design` or `/impeccable` — for the UI pass, since design is graded.
 - `/research` — for third-party facts (CognoDB behaviour, hosting tiers).
 
+**Component layer is shadcn/ui** (`apps/web/src/components/ui`), on the user's instruction. Add
+components with `pnpm dlx shadcn@4.18.0 add <name>` rather than hand-rolling. Design tokens live in
+`apps/web/src/app/globals.css`; node-category colours are `--chart-1..5` and are **validated** — do not
+substitute colours without re-running the dataviz validator. Note `--accent` is a hover surface, not the
+brand hue; `--primary` is the brand hue.
+
 **Standing preferences.** Global `CLAUDE.md` applies: TypeScript strict with no `any`, Zod validation at
 every I/O edge, RSC-first, `'use client'` pushed to the leaves, named exports except for pages/layouts,
 semantic commits.
@@ -78,6 +84,7 @@ semantic commits.
 - [Choose the signature query set](issues/05-choose-the-signature-query-set.md) — six queries (beneficial owners _(hero)_, ownership cycles, hidden link, watchlist control, nominee unmasking, shared registration) plus `resolveEntity` and `neighbourhood` primitives, all verified live. The hub allowlist is proven. **Variable-length bounds and labels cannot be parameterised**, so bounds are fixed at 6 in text and narrowed via `WHERE length(p) <= $maxDepth` — this is how the no-concatenation rule is honoured.
 - [Scaffold the monorepo and toolchain](issues/04-scaffold-the-monorepo-and-toolchain.md) — pnpm workspace with `apps/api` (NestJS), `apps/web` (Next.js), `packages/shared` (Zod). Vertical slice verified live: RSC → NestJS → CognoDB reports Bolt 5.4. TypeScript pinned to **5.9.3** (TS 7 breaks NestJS decorators), shared package ships CommonJS, API on **port 3101**. GitHub repo deliberately not created — outward-facing, needs the user's call.
 - [Specify the seed generator](issues/06-specify-the-seed-generator.md) — 3,607 nodes / 15,350 relationships from a fixed seed, layered DAG so the only cycle is the planted one. The scandal: two Northgate Transit Extension bidders tracing to sanctioned **Konstantin Belov** at 76.5% (4 hops) and 35.7% (5 hops), their parents sharing an address, agent and director. Loader self-verifies with the production queries. **The hero query takes ~1s warm, ~2s cold.**
+- [Prototype the explorer UI](issues/08-prototype-the-explorer-ui.md) — three-column shell (questions · graph · chat); **position encodes ownership depth**, not a force layout; the ~1s hero latency is narrated layer-by-layer rather than spinner-ed; hub size shown so link strength is judgeable. Palette validated across all pairs in both themes. Component layer is **shadcn/ui**, verified on Next 16 / React 19 / Tailwind 4. [Prototype](https://claude.ai/code/artifact/124093de-9c50-4a1c-a5ba-a33cc03c7ccc)
 
 Locked during charting, before any ticket existed:
 
@@ -90,16 +97,14 @@ Locked during charting, before any ticket existed:
 
 - **Implementation slices.** Once the model, query set and UI are locked, how the build splits into
   vertical slices (graph read layer → API endpoints → UI → chat) and in what order. Too coarse to slice now.
-- **ECharts specifics.** Layout algorithm, node categories and sizing, whether ownership percentage rides
-  on the edge label, the node-count ceiling before the force layout gets unusable, and the interaction
-  model (click-to-expand vs focus-subgraph). Waits on the UI prototype.
+- **Node-count ceiling and expansion.** The prototype renders hand-positioned subgraphs of 4–9 nodes.
+  Unknown: how the layered layout behaves for `watchlistControl`'s 120 results, and what click-to-expand
+  does once a user roams off the planted scenario into the wider 3,607-node graph.
 - **How a chat answer meets the chart.** Does a tool result highlight a path in the existing graph, replace
   the graph, or open a side panel? Genuinely undecided and it shapes both components. Waits on the UI prototype.
-- **Whether the hero query's ~1s latency needs attacking.** Measured, not guessed: `beneficialOwners`
-  is ~1,020 ms warm and ~1,986 ms cold at real volume. Options range from designing for it (progressive
-  reveal) through caching the hero subgraph to restructuring the query. Which is right depends on what
-  the UI prototype decides the opening interaction is — so it waits on ticket 08 rather than being
-  optimised blind.
+- **Theme toggling.** shadcn drives dark mode from a `.dark` class rather than `prefers-color-scheme`,
+  so the app needs `next-themes` or equivalent wiring. Not yet done, and it interacts with how the
+  ECharts instance re-reads its colours on theme change.
 - **The "Why a graph database?" argument.** The query set is settled, so the shape is now clear — the
   comparison is a recursive CTE with percentage arithmetic, plus cycle detection, plus shortest path.
   What is still unwritten is the actual relational schema to show alongside it and how much SQL to
