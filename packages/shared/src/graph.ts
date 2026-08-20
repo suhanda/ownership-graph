@@ -6,7 +6,7 @@ import { z } from 'zod';
  * disappear from the JSON.
  */
 const nullish = <T extends z.ZodTypeAny>(schema: T) =>
-  schema.nullish().transform((value: unknown) => value ?? undefined);
+  schema.nullish().transform((value): z.infer<T> | undefined => value ?? undefined);
 
 /**
  * The vocabulary here is the one in CONTEXT.md at the repo root. Node kinds mirror the six

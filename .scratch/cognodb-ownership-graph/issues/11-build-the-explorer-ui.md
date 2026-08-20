@@ -1,7 +1,7 @@
 # Build the explorer UI
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 10
 
 ## Question
