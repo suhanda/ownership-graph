@@ -1,77 +1,65 @@
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { fetchHealth } from '@/lib/api';
 
 /**
  * Scaffold vertical slice: a Server Component calls the NestJS API, which pings CognoDB.
- * If this page renders "reachable", the whole chain — workspace, shared schemas, Nest DI,
- * driver, env config, CORS — is wired correctly.
+ * If this renders "reachable", the whole chain — workspace, shared schemas, Nest DI, driver,
+ * env config, CORS — is wired correctly.
  */
 export default async function Page() {
   const health = await fetchHealth();
-  const failed = 'error' in health;
-  const connected = !failed && health.database === 'reachable';
+  const unreachable = 'error' in health;
+  const state = unreachable ? 'unreachable' : health.database;
+
+  const tone = {
+    reachable: { Icon: CheckCircle2, className: 'text-primary', label: 'Connected' },
+    unreachable: { Icon: XCircle, className: 'text-destructive', label: 'Unreachable' },
+    misconfigured: { Icon: AlertTriangle, className: 'text-chart-2', label: 'Misconfigured' },
+  }[state];
+
+  const rows: [string, string][] = unreachable
+    ? [['Detail', health.error]]
+    : [
+        ['Server', health.serverAgent ?? '—'],
+        ['Bolt protocol', health.boltProtocol ?? '—'],
+        ['Round trip', health.latencyMs === undefined ? '—' : `${health.latencyMs} ms`],
+        ...(health.detail ? ([['Detail', health.detail]] as [string, string][]) : []),
+      ];
 
   return (
-    <main style={{ maxWidth: 640, margin: '0 auto', padding: '4rem 1.5rem' }}>
-      <h1 style={{ fontSize: '1.5rem', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>
-        Ownership Graph
-      </h1>
-      <p style={{ color: 'var(--muted)', margin: '0 0 2rem' }}>
-        Trace who really owns a company, through every layer.
-      </p>
+    <main className="mx-auto flex min-h-svh max-w-2xl flex-col justify-center gap-6 px-6 py-16">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">Ownership Graph</h1>
+        <p className="text-muted-foreground">
+          Trace who really owns a company, through every layer.
+        </p>
+      </div>
 
-      <section
-        style={{
-          border: '1px solid var(--line)',
-          borderRadius: 10,
-          padding: '1.25rem',
-          background: 'color-mix(in srgb, var(--bg) 60%, transparent)',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '0.75rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--muted)',
-            margin: '0 0 0.75rem',
-          }}
-        >
-          Connection
-        </h2>
-        {failed ? (
-          <p style={{ margin: 0, color: 'var(--bad)' }}>{health.error}</p>
-        ) : (
-          <dl
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr',
-              gap: '0.4rem 1.25rem',
-              margin: 0,
-            }}
-          >
-            <dt style={{ color: 'var(--muted)' }}>Database</dt>
-            <dd style={{ margin: 0, color: connected ? 'var(--ok)' : 'var(--bad)' }}>
-              {health.database}
-            </dd>
-            {health.serverAgent ? (
-              <>
-                <dt style={{ color: 'var(--muted)' }}>Server</dt>
-                <dd style={{ margin: 0 }}>{health.serverAgent}</dd>
-                <dt style={{ color: 'var(--muted)' }}>Bolt</dt>
-                <dd style={{ margin: 0 }}>{health.boltProtocol}</dd>
-                <dt style={{ color: 'var(--muted)' }}>Latency</dt>
-                <dd style={{ margin: 0 }}>{health.latencyMs} ms</dd>
-              </>
-            ) : null}
-            {health.detail ? (
-              <>
-                <dt style={{ color: 'var(--muted)' }}>Detail</dt>
-                <dd style={{ margin: 0, color: 'var(--bad)' }}>{health.detail}</dd>
-              </>
-            ) : null}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <CardTitle className="text-xs font-semibold tracking-[0.11em] text-muted-foreground uppercase">
+            Database
+          </CardTitle>
+          <Badge variant="outline" className="gap-1.5">
+            <tone.Icon className={`size-3.5 ${tone.className}`} aria-hidden />
+            {tone.label}
+          </Badge>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-6">
+          <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-8 gap-y-2 text-sm">
+            {rows.map(([label, value]) => (
+              <div key={label} className="contents">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-mono tabular-nums break-words">{value}</dd>
+              </div>
+            ))}
           </dl>
-        )}
-      </section>
+        </CardContent>
+      </Card>
     </main>
   );
 }

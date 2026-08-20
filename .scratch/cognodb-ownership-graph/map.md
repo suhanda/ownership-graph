@@ -77,6 +77,7 @@ semantic commits.
 - [Design the ownership graph model](issues/02-design-the-ownership-graph-model.md) — six labels (Person, Company, Jurisdiction, Address, Intermediary, Watchlist) and ten relationship types; percentage rides on `:OWNS`, legal form is a property, one `:OFFICER_OF` carries a role. Glossary in `CONTEXT.md`, Mermaid diagram in the ticket. All eight signature patterns verified live — **and hub nodes were found to poison the hidden-link query**, so link-finding must constrain relationship types.
 - [Choose the signature query set](issues/05-choose-the-signature-query-set.md) — six queries (beneficial owners _(hero)_, ownership cycles, hidden link, watchlist control, nominee unmasking, shared registration) plus `resolveEntity` and `neighbourhood` primitives, all verified live. The hub allowlist is proven. **Variable-length bounds and labels cannot be parameterised**, so bounds are fixed at 6 in text and narrowed via `WHERE length(p) <= $maxDepth` — this is how the no-concatenation rule is honoured.
 - [Scaffold the monorepo and toolchain](issues/04-scaffold-the-monorepo-and-toolchain.md) — pnpm workspace with `apps/api` (NestJS), `apps/web` (Next.js), `packages/shared` (Zod). Vertical slice verified live: RSC → NestJS → CognoDB reports Bolt 5.4. TypeScript pinned to **5.9.3** (TS 7 breaks NestJS decorators), shared package ships CommonJS, API on **port 3101**. GitHub repo deliberately not created — outward-facing, needs the user's call.
+- [Specify the seed generator](issues/06-specify-the-seed-generator.md) — 3,607 nodes / 15,350 relationships from a fixed seed, layered DAG so the only cycle is the planted one. The scandal: two Northgate Transit Extension bidders tracing to sanctioned **Konstantin Belov** at 76.5% (4 hops) and 35.7% (5 hops), their parents sharing an address, agent and director. Loader self-verifies with the production queries. **The hero query takes ~1s warm, ~2s cold.**
 
 Locked during charting, before any ticket existed:
 
@@ -94,9 +95,11 @@ Locked during charting, before any ticket existed:
   model (click-to-expand vs focus-subgraph). Waits on the UI prototype.
 - **How a chat answer meets the chart.** Does a tool result highlight a path in the existing graph, replace
   the graph, or open a side panel? Genuinely undecided and it shapes both components. Waits on the UI prototype.
-- **Query performance at real seed volume** on 0.5 vCPU / 256 MB. Constraints and the full-text index are
-  decided and created; what is unknown is whether a 5-hop `reduce()` rollup stays acceptable once the graph
-  is thousands of nodes rather than twelve, and what depth cap the free tier forces. Waits on the seed generator.
+- **Whether the hero query's ~1s latency needs attacking.** Measured, not guessed: `beneficialOwners`
+  is ~1,020 ms warm and ~1,986 ms cold at real volume. Options range from designing for it (progressive
+  reveal) through caching the hero subgraph to restructuring the query. Which is right depends on what
+  the UI prototype decides the opening interaction is — so it waits on ticket 08 rather than being
+  optimised blind.
 - **The "Why a graph database?" argument.** The query set is settled, so the shape is now clear — the
   comparison is a recursive CTE with percentage arithmetic, plus cycle detection, plus shortest path.
   What is still unwritten is the actual relational schema to show alongside it and how much SQL to
