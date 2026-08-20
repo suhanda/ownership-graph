@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 /**
+ * Cypher returns `null` for a property a node does not have, and Zod's `.optional()` rejects null.
+ * Accept both and normalise to `undefined`, so the client type stays clean and absent keys simply
+ * disappear from the JSON.
+ */
+const nullish = <T extends z.ZodTypeAny>(schema: T) =>
+  schema.nullish().transform((value: unknown) => value ?? undefined);
+
+/**
  * The vocabulary here is the one in CONTEXT.md at the repo root. Node kinds mirror the six
  * labels in the graph model exactly, and double as ECharts categories in the web app.
  */
@@ -22,10 +30,10 @@ export const graphNodeSchema = z.object({
   id: z.string().min(1),
   kind: nodeKindSchema,
   label: z.string(),
-  legalForm: z.string().optional(),
-  jurisdictionCode: z.string().optional(),
-  secrecyScore: z.number().optional(),
-  watchlisted: z.boolean().optional(),
+  legalForm: nullish(z.string()),
+  jurisdictionCode: nullish(z.string()),
+  secrecyScore: nullish(z.number()),
+  watchlisted: nullish(z.boolean()),
 });
 export type GraphNode = z.infer<typeof graphNodeSchema>;
 
@@ -48,8 +56,8 @@ export const graphLinkSchema = z.object({
   source: z.string().min(1),
   target: z.string().min(1),
   type: relationshipTypeSchema,
-  pct: z.number().min(0).max(1).optional(),
-  role: z.string().optional(),
+  pct: nullish(z.number().min(0).max(1)),
+  role: nullish(z.string()),
 });
 export type GraphLink = z.infer<typeof graphLinkSchema>;
 

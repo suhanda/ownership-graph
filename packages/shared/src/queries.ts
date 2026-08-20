@@ -9,8 +9,9 @@ import { z } from 'zod';
  * `WHERE length(p) <= $maxDepth` rather than by building query strings.
  */
 export const MAX_DEPTH_CEILING = 6;
-const maxDepth = z.number().int().min(1).max(MAX_DEPTH_CEILING).default(5);
-const minPct = z.number().min(0).max(1).default(0.01);
+// coerce, because these schemas serve HTTP query strings as well as the chat tool definitions.
+const maxDepth = z.coerce.number().int().min(1).max(MAX_DEPTH_CEILING).default(5);
+const minPct = z.coerce.number().min(0).max(1).default(0.01);
 const entityId = z.string().min(1);
 
 export const beneficialOwnersParams = z.object({ companyId: entityId, maxDepth, minPct });
@@ -20,19 +21,21 @@ export const watchlistControlParams = z.object({
   watchlistName: z.string().min(1).default('OFAC SDN'),
   maxDepth,
   minPct,
+  /** Caps the collected paths, so rows and the drawn subgraph always agree. */
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 export const nomineeUnmaskingParams = z.object({ personId: entityId });
 export const sharedRegistrationParams = z.object({
   companyId: entityId,
-  limit: z.number().int().min(1).max(50).default(10),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 export const resolveEntityParams = z.object({
   term: z.string().min(1),
-  limit: z.number().int().min(1).max(25).default(8),
+  limit: z.coerce.number().int().min(1).max(25).default(8),
 });
 export const neighbourhoodParams = z.object({
   id: entityId,
-  limit: z.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
 export type BeneficialOwnersParams = z.infer<typeof beneficialOwnersParams>;

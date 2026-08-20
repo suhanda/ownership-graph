@@ -1,7 +1,7 @@
 # Build the graph read layer and endpoints
 
 Type: task
-Status: open
+Status: claimed
 
 ## Question
 
