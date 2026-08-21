@@ -31,6 +31,9 @@ import { guardCypher, MAX_GENERATED_ROWS } from './cypher-guard';
 /** Capped: tool results are replayed on every later turn, so unbounded rows compound. */
 const MAX_ROWS_TO_MODEL = 12;
 
+/** Ceiling on a single drawn subgraph. Beyond this the force layout is a hairball, not a diagram. */
+const DRAW_NODE_CEILING = 150;
+
 export function buildTools(graph: GraphService, emit: (event: ChatEvent) => void) {
   /**
    * The returned string is the model's *only* view of the result — the graph payload and the full
@@ -173,19 +176,29 @@ export function buildTools(graph: GraphService, emit: (event: ChatEvent) => void
       name: 'draw_on_canvas',
       description:
         'Draw a set of entities on the graph canvas beside this conversation, showing how they ' +
-        'connect. Use when the user asks to see, draw, visualise or map something, or when a ' +
-        'picture would explain an answer better than prose. Pass the ids you already have from an ' +
-        'earlier tool result. The canvas replaces whatever is currently shown.',
+        'connect. Use when the user asks to see, draw, visualise, map or EXPAND something. Pass the ' +
+        'ids you already have from an earlier tool result or from the <canvas> block. Set ' +
+        'includeNeighbours to grow the picture outward. The canvas replaces whatever is shown, so ' +
+        'to add, include the existing ids too.',
       inputSchema: z.object({
         ids: z
           .array(z.string().min(1))
-          .min(2)
-          .max(60)
+          .min(1)
+          .max(200)
           .describe('Entity ids to draw. Every relationship between them is drawn automatically.'),
         title: z.string().min(1).describe('A short caption for what is being shown.'),
+        includeNeighbours: z
+          .boolean()
+          .optional()
+          .describe(
+            'Also draw everything one step around those ids. Use this for "expand" requests instead ' +
+              'of calling expand_neighbours once per node.',
+          ),
       }),
       run: async (args) => {
-        const result = await graph.inducedSubgraph(args.ids);
+        const result = args.includeNeighbours
+          ? await graph.neighbourhoodOf(args.ids, DRAW_NODE_CEILING)
+          : await graph.inducedSubgraph(args.ids);
         const drawn = result.graph?.nodes.length ?? 0;
         emit({ type: 'tool_result', name: 'draw_on_canvas', summary: args.title, ...result });
         if (drawn === 0) {
@@ -278,10 +291,15 @@ Each question arrives with a <canvas> block listing what is currently drawn, wit
 Use it to answer questions about what the user is looking at, and to resolve references like "this
 one", "the sanctioned one" or "the company on the right" without asking them to repeat an id.
 
-Most tools draw their own result automatically. When the user asks to see, draw, visualise or map
-something — or when a diagram would explain better than prose — call draw_on_canvas. It replaces the
-canvas, so to *add* to what is already shown, pass the existing ids from the <canvas> block together
-with the new ones. Never say you cannot draw, and never suggest an external diagramming tool.
+Most tools draw their own result automatically. When the user asks to see, draw, visualise, map or
+expand something — or when a diagram would explain better than prose — call draw_on_canvas. It
+replaces the canvas, so to *add* to what is shown, pass the existing ids from the <canvas> block too.
+
+To expand what is on screen, call draw_on_canvas once with those ids and includeNeighbours: true.
+Never call expand_neighbours repeatedly to build a picture — one call per node is slow, repaints the
+chart each time, and will not give you the union.
+
+Never say you cannot draw, and never suggest an external diagramming tool.
 
 The graph schema, for run_cypher:
   (:Person {id, name, bornYear})

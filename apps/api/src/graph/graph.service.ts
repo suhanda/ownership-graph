@@ -101,6 +101,10 @@ export class GraphService implements GraphPort {
     return this.drawable(QUERIES.inducedSubgraph, { ids });
   }
 
+  neighbourhoodOf(ids: string[], limit: number): Promise<QueryResult> {
+    return this.drawable(QUERIES.neighbourhoodOf, { ids, limit: neo4j.int(limit) });
+  }
+
   async runReadOnly(cypher: string, params: Record<string, unknown>): Promise<Rows> {
     const plan = await this.cognodb.explain(cypher, params);
     const writes = planWrites(planOperators(plan));

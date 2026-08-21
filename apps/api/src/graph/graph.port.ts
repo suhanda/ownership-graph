@@ -41,4 +41,6 @@ export interface GraphService {
   runReadOnly(cypher: string, params: Record<string, unknown>): Promise<Rows>;
   /** The induced subgraph over a set of ids: those nodes and every relationship between them. */
   inducedSubgraph(ids: string[]): Promise<QueryResult>;
+  /** Those nodes plus everything one step around them, bounded by `limit`. */
+  neighbourhoodOf(ids: string[], limit: number): Promise<QueryResult>;
 }

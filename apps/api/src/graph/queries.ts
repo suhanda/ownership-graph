@@ -214,6 +214,32 @@ WITH ns, rs, [] AS rows
 ${PROJECT_SUBGRAPH.replace('WITH rs, collect({', 'WITH rows, rs, collect({').replace('RETURN nodes,', 'RETURN rows, nodes,')}`,
 };
 
+/**
+ * The given nodes, their immediate neighbours, and every relationship among that whole set.
+ *
+ * Exists because "expand everything on the canvas" was otherwise only expressible as one
+ * expand_neighbours call per node — the model issued twenty-one in a single turn, each repainting
+ * the chart, and still could not draw the union. One bounded query replaces all of that.
+ */
+export const neighbourhoodOf: GraphQuery = {
+  name: 'neighbourhoodOf',
+  question: 'Draw these entities and everything one step around them.',
+  drawable: true,
+  cypher: `
+MATCH (seed) WHERE coalesce(seed.id, seed.code) IN $ids
+OPTIONAL MATCH (seed)-[]-(nbr)
+WITH collect(DISTINCT seed) + collect(DISTINCT nbr) AS all
+UNWIND all AS n
+WITH collect(DISTINCT n) AS ns
+WITH ns[0..$limit] AS ns
+WITH ns, [x IN ns | coalesce(x.id, x.code)] AS keep
+MATCH (a)-[rel]->(b)
+WHERE coalesce(a.id, a.code) IN keep AND coalesce(b.id, b.code) IN keep
+WITH ns, collect(DISTINCT rel) AS rs
+WITH ns, rs, [] AS rows
+${PROJECT_SUBGRAPH.replace('WITH rs, collect({', 'WITH rows, rs, collect({').replace('RETURN nodes,', 'RETURN rows, nodes,')}`,
+};
+
 /** Rows only — this is a lookup, not an answer. */
 export const resolveEntity: GraphQuery = {
   name: 'resolveEntity',
@@ -236,6 +262,7 @@ export const QUERIES = {
   resolveEntity,
   neighbourhood,
   inducedSubgraph,
+  neighbourhoodOf,
 } as const;
 
 export type QueryName = keyof typeof QUERIES;
