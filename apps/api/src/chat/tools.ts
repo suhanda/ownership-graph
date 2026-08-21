@@ -1,4 +1,5 @@
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
+import { z } from 'zod';
 import {
   beneficialOwnersParams,
   hiddenLinkParams,
@@ -13,6 +14,7 @@ import {
   type ToolName,
 } from '@ownership/shared';
 import type { GraphService, Rows } from '../graph/graph.port';
+import { guardCypher, MAX_GENERATED_ROWS } from './cypher-guard';
 
 /**
  * Claude's entire capability surface. Each tool wraps one hand-written parameterised query from
@@ -149,6 +151,51 @@ export function buildTools(graph: GraphService, emit: (event: ChatEvent) => void
     }),
 
     betaZodTool({
+      name: 'run_cypher',
+      description:
+        'Run a read-only Cypher query against the graph, for questions the other tools do not cover — ' +
+        'aggregates, rankings, filters, "how many", "which jurisdiction has the most". Prefer a ' +
+        'specific tool when one fits: they are tested and they draw a diagram, this returns a table. ' +
+        'Read-only; writes are refused. Always include a LIMIT.',
+      inputSchema: z.object({
+        cypher: z
+          .string()
+          .min(1)
+          .max(2000)
+          .describe('A single read-only Cypher statement, no semicolon.'),
+        purpose: z
+          .string()
+          .min(1)
+          .describe('One short line on what this answers, shown to the user.'),
+        params: z
+          .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+          .optional()
+          .describe('Values for $parameters in the query. Prefer these over inlining user input.'),
+      }),
+      run: async (args) => {
+        const guard = guardCypher(args.cypher);
+        if (!guard.ok || !guard.cypher) {
+          emit({ type: 'tool_result', name: 'run_cypher', summary: 'refused', rows: [] });
+          return `Refused: ${guard.reason} Rewrite it as a read-only query, or use a specific tool.`;
+        }
+        try {
+          const rows = await graph.runReadOnly(guard.cypher, args.params ?? {});
+          emit({ type: 'tool_result', name: 'run_cypher', summary: args.purpose, rows });
+          if (rows.length === 0) return `${args.purpose}: no rows. Report that as a finding.`;
+          const shown = rows.slice(0, MAX_ROWS_TO_MODEL);
+          return [
+            `${args.purpose}: ${rows.length} row(s)${rows.length >= MAX_GENERATED_ROWS ? ' (capped)' : ''}`,
+            JSON.stringify(shown),
+          ].join('\n');
+        } catch (error) {
+          const detail = (error as { cause?: Error }).cause?.message ?? 'the query failed';
+          emit({ type: 'tool_result', name: 'run_cypher', summary: 'failed', rows: [] });
+          return `That query did not run (${detail}). Check it against the schema, or use a specific tool.`;
+        }
+      },
+    }),
+
+    betaZodTool({
       name: 'expand_neighbours',
       description:
         'List everything directly connected to one entity, with relationship types and direction. Use ' +
@@ -172,6 +219,25 @@ corporate ownership: companies, people, shareholdings, officer roles, nominees, 
 corporate agents, jurisdictions and sanctions watchlists.
 
 Answer only from tool results. Never guess an ownership percentage, a name or a relationship.
+
+The graph schema, for run_cypher:
+  (:Person {id, name, bornYear})
+  (:Company {id, name, legalForm, incorporatedOn, status})
+  (:Jurisdiction {code, name, secrecyScore})   (:Address {id, line1, city, countryCode})
+  (:Intermediary {id, name, type})             (:Watchlist {id, name, authority})
+  (owner)-[:OWNS {pct, since}]->(:Company)     (:Person)-[:OFFICER_OF {role, from}]->(:Company)
+  (:Person)-[:NOMINEE_FOR {since}]->(party)    (:Company)-[:REGISTERED_IN]->(:Jurisdiction)
+  (:Company)-[:REGISTERED_AT]->(:Address)      (:Person)-[:RESIDES_AT]->(:Address)
+  (:Company)-[:ADMINISTERED_BY]->(:Intermediary)  (:Intermediary)-[:BASED_AT]->(:Address)
+  (:Person)-[:CITIZEN_OF]->(:Jurisdiction)     (party)-[:LISTED_ON {since, program}]->(:Watchlist)
+
+This database is not Neo4j and differs in three ways that matter when writing Cypher:
+  - No APOC and no GDS. Plain Cypher only.
+  - Variable-length paths use node uniqueness, so (c)-[:OWNS*2..6]->(c) returns nothing at all.
+    To find a cycle, match the closing edge separately:
+    MATCH (a:Company)-[:OWNS]->(b:Company) MATCH p = (b)-[:OWNS*1..6]->(a)
+  - A variable-length bound cannot be a parameter. Write *1..6 literally and filter with
+    WHERE length(p) <= $maxDepth.
 
 Resolve names to ids with find_entity before calling any tool that needs one. If a name is ambiguous, \
 ask which entity the user meant rather than choosing for them.

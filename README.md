@@ -196,10 +196,26 @@ The shared package is the contract: the same schemas validate HTTP query strings
 and the Claude tool definitions — so an endpoint and its tool cannot disagree about what a parameter
 means.
 
-**The chat cannot write Cypher.** Claude is given eight tools, each wrapping one hand-written
-parameterised query, and reaches the database only through
-[`graph.port.ts`](./apps/api/src/graph/graph.port.ts). It selects a tool and fills typed arguments;
-there is no path from the model to arbitrary query text.
+**The chat has nine tools.** Eight wrap hand-written parameterised queries — the model picks one and
+fills typed arguments, and those paths never involve generated query text. The ninth, `run_cypher`,
+does let the model write a read-only query, for the questions a fixed set cannot anticipate
+("which jurisdiction hosts the most companies?"). Everything reaches the database only through
+[`graph.port.ts`](./apps/api/src/graph/graph.port.ts).
+
+Generated Cypher is guarded by two checks, because **CognoDB does not enforce read-only sessions** —
+a session opened with `defaultAccessMode: READ` was measured executing `CREATE`, `DELETE` and `SET`
+without complaint, so the usual driver guarantee does not hold here:
+
+1. A text pass rejects mutating keywords, multiple statements and administrative procedures, and
+   appends a `LIMIT` if one is missing. String literals and comments are stripped first, so a company
+   called "DELETE ME" does not trip it.
+2. **The query is `EXPLAIN`ed and the planner's operator tree inspected before it runs.** Any write
+   operator — `Create`, `Merge`, `SetProperties`, `DetachDelete` — and it is refused. This reflects
+   what the engine will actually do rather than what the text looks like, so whitespace and casing
+   tricks do not defeat it.
+
+Verified against the live database: reads run, and `CREATE`, `MERGE`, `SET` and `DETACH DELETE` are
+each refused by operator name _before execution_, with the graph left byte-identical afterwards.
 
 The model is **Claude Haiku 4.5** — the cheapest current model, and ample for choosing among eight
 tools and writing three sentences about the result. `ANTHROPIC_MODEL` changes it, and the request

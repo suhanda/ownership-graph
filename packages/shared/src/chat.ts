@@ -18,6 +18,7 @@ export const toolNameSchema = z.enum([
   'unmask_nominee',
   'find_shared_registration',
   'expand_neighbours',
+  'run_cypher',
 ]);
 export type ToolName = z.infer<typeof toolNameSchema>;
 

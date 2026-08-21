@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import neo4j, { Driver, type Record as Neo4jRecord } from 'neo4j-driver';
 import { loadEnv } from '../config/env';
 import { API_ERROR_MESSAGE } from '@ownership/shared';
+import type { PlanNode } from '../chat/cypher-guard';
 import { classifyDriverError, DatabaseError } from './database.exception';
 
 /** The three honest states from ticket 01 — the driver cannot distinguish more than this. */
@@ -72,6 +73,19 @@ export class CognoDbService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await session.run(cypher, params);
       return result.records.map(map);
+    } catch (error) {
+      throw new DatabaseError(classifyDriverError(error), error);
+    } finally {
+      await session.close();
+    }
+  }
+
+  /** Plans a query without running it, so its intent can be inspected before execution. */
+  async explain(cypher: string, params: Record<string, unknown>): Promise<PlanNode | undefined> {
+    const session = this.require().session({ defaultAccessMode: neo4j.session.READ });
+    try {
+      const result = await session.run(`EXPLAIN ${cypher}`, params);
+      return result.summary.plan as PlanNode | undefined;
     } catch (error) {
       throw new DatabaseError(classifyDriverError(error), error);
     } finally {

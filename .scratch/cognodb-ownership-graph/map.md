@@ -75,6 +75,10 @@ brand hue; `--primary` is the brand hue.
 features and are *rejected* by Haiku 4.5 / Sonnet 4.5 — sending them is a 400 on every request, not a
 degradation. `modelFeatures()` in `chat.service.ts` gates them; extend it before changing `ANTHROPIC_MODEL`.
 
+**CognoDB does not enforce read-only sessions.** A `defaultAccessMode: READ` session was measured
+executing `CREATE`, `DELETE` and `SET`. Never treat the access mode as a boundary on this database;
+model-generated Cypher is gated by `EXPLAIN` plan inspection in `graph.service.ts`.
+
 **The chat may only reach `apps/api/src/graph/graph.port.ts`.** That interface is the whole surface —
 it is what makes "the model never writes Cypher" structural rather than conventional. Do not give the
 chat layer the driver or a raw-query escape hatch.
@@ -129,8 +133,9 @@ Locked during charting, before any ticket existed:
 - **Real ICIJ Offshore Leaks ingestion.** Ruled out while charting: large, messy, needs attribution
   handling, and it cannot guarantee a clean demo path exists inside 48 hours. Realistic synthetic with
   planted patterns wins on control.
-- **Text-to-Cypher generation, and the tools-plus-generation hybrid.** Ruled out while charting in favour of
-  tool-calling over curated parameterised queries — deterministic on stage, and it satisfies the
-  no-concatenation rule outright.
+- ~~**Text-to-Cypher generation.**~~ **Brought back into scope** on the user's instruction: the chat now
+  has a ninth `run_cypher` tool for questions a fixed set cannot anticipate. The eight curated tools
+  remain the preferred path. Guarded by a text pass *and* an `EXPLAIN` plan inspection — necessary
+  because **CognoDB does not enforce read-only sessions**, which was measured, not assumed.
 - **NestJS on serverless.** Ruled out: Bolt is a stateful long-lived TCP connection and serverless would
   thrash the driver's pool.

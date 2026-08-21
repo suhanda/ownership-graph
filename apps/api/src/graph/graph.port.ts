@@ -33,4 +33,10 @@ export interface GraphService {
   nomineeUnmasking(params: NomineeUnmaskingParams): Promise<QueryResult>;
   sharedRegistration(params: SharedRegistrationParams): Promise<QueryResult>;
   neighbourhood(params: NeighbourhoodParams): Promise<QueryResult>;
+  /**
+   * Runs model-generated Cypher in a session opened READ-only, so the engine refuses writes
+   * regardless of what passed validation. Returns rows only — a generated query has an arbitrary
+   * shape, so there is nothing reliable to draw from it.
+   */
+  runReadOnly(cypher: string, params: Record<string, unknown>): Promise<Rows>;
 }

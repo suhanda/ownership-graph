@@ -12,6 +12,8 @@ import {
   type WatchlistControlParams,
 } from '@ownership/shared';
 import neo4j from 'neo4j-driver';
+import { planOperators, planWrites } from '../chat/cypher-guard';
+import { DatabaseError } from '../cognodb/database.exception';
 import { CognoDbService } from '../cognodb/cognodb.service';
 import type { GraphService as GraphPort, QueryResult, Rows } from './graph.port';
 import { toPlain, toPlainRecord } from './plain';
@@ -88,5 +90,22 @@ export class GraphService implements GraphPort {
 
   neighbourhood(params: NeighbourhoodParams): Promise<QueryResult> {
     return this.drawable(QUERIES.neighbourhood, ints(params, ['limit']));
+  }
+
+  /**
+   * CognoDB does not enforce read-only sessions — a READ session was measured happily running
+   * CREATE and DELETE. So the query is planned first and refused if the planner intends any write.
+   * This is the actual boundary; the access mode is not one.
+   */
+  async runReadOnly(cypher: string, params: Record<string, unknown>): Promise<Rows> {
+    const plan = await this.cognodb.explain(cypher, params);
+    const writes = planWrites(planOperators(plan));
+    if (writes.length > 0) {
+      throw new DatabaseError(
+        'invalid_request',
+        new Error(`refused write plan: ${writes.join(', ')}`),
+      );
+    }
+    return this.cognodb.read(cypher, params, (record) => toPlainRecord(record.toObject()));
   }
 }
