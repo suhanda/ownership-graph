@@ -16,7 +16,8 @@ async function bootstrap(): Promise<void> {
   // degraded and tells the truth on /health.
   const app = await NestFactory.create(AppModule);
   app.useGlobalFilters(new DatabaseExceptionFilter(), new HttpExceptionShapeFilter());
-  app.enableCors({ origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()) });
+  app.enableCors({ origin: env.CORS_ORIGIN, credentials: false });
+  new Logger('bootstrap').log(`CORS allows: ${env.CORS_ORIGIN.join(', ')}`);
   await app.listen(env.PORT);
   new Logger('bootstrap').log(`API listening on http://localhost:${env.PORT}`);
 }

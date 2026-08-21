@@ -20,7 +20,23 @@ const envSchema = z.object({
    */
   ANTHROPIC_MODEL: z.string().min(1).default('claude-haiku-4-5'),
   PORT: z.coerce.number().int().positive().default(3101),
-  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  /**
+   * Comma-separated allowed origins. A browser always sends `Origin` with a scheme, and the CORS
+   * middleware compares by exact string — so a bare hostname silently blocks every request with no
+   * error anywhere on the server. Easy to paste in from a dashboard, so it is normalised here
+   * rather than trusted.
+   */
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:3000')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+        .map((origin) => (/^https?:\/\//.test(origin) ? origin : `https://${origin}`))
+        .map((origin) => origin.replace(/\/+$/, '')),
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;
