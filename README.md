@@ -201,6 +201,12 @@ parameterised query, and reaches the database only through
 [`graph.port.ts`](./apps/api/src/graph/graph.port.ts). It selects a tool and fills typed arguments;
 there is no path from the model to arbitrary query text.
 
+The model is **Claude Haiku 4.5** — the cheapest current model, and ample for choosing among eight
+tools and writing three sentences about the result. `ANTHROPIC_MODEL` changes it, and the request
+adapts: adaptive thinking and `output_config.effort` arrived with the 4.6 generation and are
+_rejected_ by Haiku 4.5, so they are sent only to models that accept them. Getting that wrong is a
+400 on every request rather than a graceful degradation.
+
 **Failure is designed, not discovered.** The driver reports a bad hostname, a refused connection and a
 network timeout as byte-identical `ServiceUnavailable` errors, so the app does not pretend to diagnose
 which — it says so. The API starts degraded rather than refusing to boot, because a container that

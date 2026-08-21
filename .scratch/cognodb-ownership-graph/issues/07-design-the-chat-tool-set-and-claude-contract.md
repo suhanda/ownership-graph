@@ -121,3 +121,38 @@ bypass was removed and the guard left intact. Worth knowing, because the bypass 
 accident and easy to miss in review.
 
 **Status: resolved.** No design decisions remain on the map.
+
+## Amendment — model changed to Claude Haiku 4.5
+
+The model decision above (`claude-opus-5`, adaptive thinking, effort `low`) is **superseded**: the
+user asked for the cheapest model. Now **`claude-haiku-4-5`** at $1/$5 per million tokens, against
+Opus 5's $5/$25 — a 5× reduction, and the work is choosing among eight tools and writing three
+sentences, which does not need a frontier model.
+
+A DeepSeek switch was explored first and reversed. Worth recording, because the finding stands if it
+ever comes up again: DeepSeek exposes an **Anthropic-compatible endpoint** at
+`https://api.deepseek.com/anthropic` (models `deepseek-v4-pro` / `deepseek-v4-flash`) which supports
+streaming and tool use, so the same SDK and the same tool definitions would work. It does **not**
+support `cache_control`, `anthropic-beta` headers, images, or MCP tools. Two SDK facts made it
+viable: `beta.messages.create` posts to `/v1/messages?beta=true` — the same path with a query
+param — and the `anthropic-beta` header is only sent when `betas` is passed, which this code does
+not do. The plumbing was removed rather than left in place for a reversed decision.
+
+### The trap this exposed
+
+**Model capabilities are not uniform, and the failure is a 400 on every request, not a degradation.**
+Adaptive thinking and `output_config.effort` arrived with the 4.6 generation; `effort` is *rejected*
+by Haiku 4.5 and Sonnet 4.5. Swapping the model string alone would have broken the chat completely —
+and since the live path has never run, it would have been discovered during the recording.
+
+`modelFeatures()` in `chat.service.ts` gates both parameters on the model. Verified across eight
+model ids: Haiku 4.5, Sonnet 4.5 and Opus 4.5 correctly get neither; Opus 5, Sonnet 5, Opus 4.6/4.8
+and Fable 5 correctly get both.
+
+`cache_control` on the system block is kept. It matters *more* on a cheap model, not less: the system
+prompt and tool list are most of the input tokens on every turn.
+
+### Cost ceiling
+
+The 300,000-token daily budget is now worth at most ~$1.50/day if every token were output, and
+realistically well under a dollar. `ANTHROPIC_MODEL` overrides the model in one env var.

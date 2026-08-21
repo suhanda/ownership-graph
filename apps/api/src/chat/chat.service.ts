@@ -11,6 +11,16 @@ import { GraphService } from '../graph/graph.service';
 import { BudgetService } from './budget.service';
 import { buildTools, PRESET_QUESTIONS, SYSTEM_PROMPT } from './tools';
 
+/**
+ * Request features vary by model generation, and getting this wrong is a 400 on every call rather
+ * than a graceful degradation. Adaptive thinking and `output_config.effort` arrived with the 4.6
+ * generation; `effort` is rejected by Haiku 4.5 and Sonnet 4.5 specifically.
+ */
+function modelFeatures(model: string): { adaptiveThinking: boolean; effort: boolean } {
+  const modern = /^claude-(opus-(5|4-[678])|sonnet-(5|4-6)|fable-5|mythos-5)/.test(model);
+  return { adaptiveThinking: modern, effort: modern };
+}
+
 /** Ticket 07: bounded so a single question cannot become an unbounded agent loop. */
 const MAX_TOOL_ITERATIONS = 6;
 const MAX_TOKENS = 2048;
@@ -19,17 +29,23 @@ const MAX_TOKENS = 2048;
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
   private readonly client: Anthropic | null;
+  private readonly model: string;
 
   constructor(
     private readonly graph: GraphService,
     private readonly budget: BudgetService,
   ) {
-    const key = loadEnv().ANTHROPIC_API_KEY;
+    const env = loadEnv();
+    const key = env.ANTHROPIC_API_KEY;
+    this.model = env.ANTHROPIC_MODEL;
+
     // An absent key is a supported state, not a crash: the graph is the product, the chat is a layer
     // on top of it, and the UI degrades to the preset questions.
     this.client = key ? new Anthropic({ apiKey: key }) : null;
+
     if (!key)
       this.logger.warn('ANTHROPIC_API_KEY is not set — chat is disabled, graph is unaffected');
+    else this.logger.log(`Chat using ${this.model}`);
   }
 
   status(): ChatStatus {
@@ -82,13 +98,24 @@ export class ChatService {
       emit(event);
     });
 
+    const features = modelFeatures(this.model);
+
     const runner = this.client.beta.messages.toolRunner({
-      model: 'claude-opus-5',
+      model: this.model,
       max_tokens: MAX_TOKENS,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'low' },
-      // Cached: the system prompt and tool list are byte-stable, so only the conversation varies.
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      // Both are 4.6-and-later features, and `effort` is rejected outright by Haiku 4.5 — sending
+      // them unconditionally would 400 every request on the default model.
+      ...(features.adaptiveThinking ? { thinking: { type: 'adaptive' as const } } : {}),
+      ...(features.effort ? { output_config: { effort: 'low' as const } } : {}),
+      // The system prompt and tool list are byte-stable, so only the conversation varies and the
+      // prefix caches. Worth more on a cheap model, not less: it is most of the input tokens.
+      system: [
+        {
+          type: 'text' as const,
+          text: SYSTEM_PROMPT,
+          cache_control: { type: 'ephemeral' as const },
+        },
+      ],
       messages: [
         ...request.history.map((turn) => ({ role: turn.role, content: turn.content })),
         { role: 'user' as const, content: request.message },
