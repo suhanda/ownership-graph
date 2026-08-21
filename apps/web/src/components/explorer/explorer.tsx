@@ -1,12 +1,11 @@
 'use client';
 
-import type { ApiError, GraphPayload, Health } from '@ownership/shared';
+import type { ApiError, GraphNode, GraphPayload, Health } from '@ownership/shared';
 import { ArrowLeft, Database, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { api, type QueryResult } from '@/lib/api';
-import { layered, radial, type PositionedGraph, type PositionedNode } from '@/lib/layout';
 import dynamic from 'next/dynamic';
 import { ChatPanel } from './chat-panel';
 import { Findings } from './findings';
@@ -33,7 +32,7 @@ interface View {
   tracing: string[];
   status: Status;
   rows: Record<string, unknown>[];
-  graph?: PositionedGraph;
+  graph?: GraphPayload;
   focusIds: string[];
   error?: ApiError;
   meta?: string;
@@ -51,7 +50,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
     tracing: first.tracing,
     status: initial.rows.length ? 'ready' : 'empty',
     rows: initial.rows,
-    graph: initial.graph ? first.position(initial.graph) : undefined,
+    graph: initial.graph,
     focusIds: first.focusIds,
     empty: first.empty,
     meta: `${initial.rows.length} owners`,
@@ -84,7 +83,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
       ...c,
       status: rows.length === 0 ? 'empty' : 'ready',
       rows,
-      graph: graph ? question.position(graph) : undefined,
+      graph,
       meta: `${rows.length} result(s) · ${Date.now() - started} ms`,
     }));
   }, []);
@@ -96,7 +95,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
 
   /** Clicking a node expands its neighbourhood — the way to roam beyond the planted scenario. */
   const expand = useCallback(
-    async (node: PositionedNode) => {
+    async (node: GraphNode) => {
       const previous = view;
       setView((c) => ({
         ...c,
@@ -127,7 +126,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
         ...c,
         status: result.data.rows.length === 0 ? 'empty' : 'ready',
         rows: [],
-        graph: result.data.graph ? radial(result.data.graph, node.id) : undefined,
+        graph: result.data.graph,
         meta: `${result.data.rows.length} neighbour(s)`,
       }));
     },
@@ -144,7 +143,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
       subtitle: label,
       status: 'ready',
       rows: [],
-      graph: layered(graph),
+      graph,
       focusIds: root ? [root.id] : [],
       meta: `${graph.nodes.length} nodes`,
       from: undefined,
@@ -192,7 +191,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
       ...c,
       status: result.data.rows.length === 0 ? 'empty' : 'ready',
       rows: result.data.rows,
-      graph: result.data.graph ? layered(result.data.graph) : undefined,
+      graph: result.data.graph,
       meta: `${result.data.rows.length} owner(s)`,
     }));
   };

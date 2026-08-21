@@ -1,6 +1,4 @@
 import { api, type Fetched, type QueryResult } from '@/lib/api';
-import { bridged, layered, radial, ring, type PositionedGraph } from '@/lib/layout';
-import type { GraphPayload } from '@ownership/shared';
 
 /**
  * The six signature questions, phrased as a person would ask them. Each one owns its own layout,
@@ -17,7 +15,6 @@ export interface Question {
   /** Narration shown while the query runs, one line per layer of work. */
   tracing: string[];
   run: () => Promise<Fetched<QueryResult>>;
-  position: (payload: GraphPayload) => PositionedGraph;
   focusIds: string[];
   empty: { headline: string; detail: string };
 }
@@ -42,7 +39,6 @@ export const QUESTIONS: Question[] = [
       'Layer 4 · natural person',
     ],
     run: () => api.beneficialOwners(BIDDER_A, 5),
-    position: (payload) => layered(payload),
     focusIds: [BIDDER_A],
     empty: {
       headline: 'No owner found within five layers',
@@ -57,7 +53,6 @@ export const QUESTIONS: Question[] = [
     subtitle: 'Two bidders on the same contract, with no direct relationship.',
     tracing: ['Resolving both companies', 'Searching paths, 2 hops', '3 hops', '4 hops'],
     run: () => api.hiddenLink(BIDDER_A, BIDDER_B, 6),
-    position: (payload) => bridged(payload, BIDDER_A, BIDDER_B),
     focusIds: [BIDDER_A, BIDDER_B],
     empty: {
       headline: 'No connection within six hops',
@@ -72,7 +67,6 @@ export const QUESTIONS: Question[] = [
     subtitle: 'Ownership that loops never reaches a person — which is the point of it.',
     tracing: ['Scanning ownership edges', 'Following each chain back', 'Closing the rings'],
     run: () => api.cycles(6),
-    position: (payload) => ring(payload),
     focusIds: [],
     empty: {
       headline: 'No circular ownership found',
@@ -87,7 +81,6 @@ export const QUESTIONS: Question[] = [
     subtitle: 'Every company reached from the OFAC SDN list, at any depth.',
     tracing: ['Reading the watchlist', 'Expanding holdings', 'Rolling up percentages'],
     run: () => api.watchlist(20),
-    position: (payload) => layered(payload),
     focusIds: [],
     empty: {
       headline: 'Nobody on the watchlist controls anything here',
@@ -106,7 +99,6 @@ export const QUESTIONS: Question[] = [
       'Listing the companies she fronts',
     ],
     run: () => api.nominee(NOMINEE),
-    position: (payload) => radial(payload, NOMINEE),
     focusIds: [NOMINEE],
     empty: {
       headline: 'This person is not acting as a nominee',
@@ -121,7 +113,6 @@ export const QUESTIONS: Question[] = [
     subtitle: 'A mass-registration address is weak evidence. A shared director is not.',
     tracing: ['Reading the registration', 'Counting co-registrants'],
     run: () => api.sharedRegistration(PARENT_A, 8),
-    position: (payload) => radial(payload, PARENT_A),
     focusIds: [PARENT_A],
     empty: {
       headline: 'This company shares neither an address nor an agent',
