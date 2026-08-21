@@ -2,13 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifySession } from '@/lib/session';
 
 /**
+ * Next's `proxy` convention, renamed from `middleware` in Next 16. Not to be confused with the API
+ * proxy route handlers under `app/api/` — this one gates pages, those forward requests upstream.
+ *
  * Gates every page behind the shared password. The login page and the session endpoint are exempt
- * for obvious reasons; `/api/*` proxies check the session themselves, because a redirect to HTML is
+ * for obvious reasons; `/api/*` route handlers check the session themselves, because a redirect to HTML is
  * the wrong answer to a fetch.
  *
  * With APP_PASSWORD unset the gate is off entirely, so local development needs no setup.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const password = process.env.APP_PASSWORD;
   if (!password) return NextResponse.next();
 

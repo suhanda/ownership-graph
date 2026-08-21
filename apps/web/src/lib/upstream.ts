@@ -12,7 +12,7 @@ export function upstreamHeaders(extra: Record<string, string> = {}): Record<stri
 }
 
 /**
- * Proxies check the session themselves rather than relying on the middleware: a fetch that has lost
+ * Route handlers check the session themselves rather than relying on the page proxy: a fetch that
  * its session should get a 401 it can handle, not a redirect to an HTML login page.
  */
 export async function sessionValid(): Promise<boolean> {

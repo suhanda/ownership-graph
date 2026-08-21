@@ -1,7 +1,7 @@
 /**
  * A signed session cookie for the shared-password gate.
  *
- * Uses Web Crypto rather than node:crypto because the middleware runs on the Edge runtime, where
+ * Uses Web Crypto rather than node:crypto because the page proxy runs on the Edge runtime, where
  * node:crypto is unavailable. The same helpers then work in route handlers too.
  */
 const encoder = new TextEncoder();

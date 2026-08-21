@@ -28,7 +28,7 @@ function Form() {
         setError((body as { error?: string } | null)?.error ?? 'That password is not right.');
         return;
       }
-      // A full navigation, not a client push: the middleware has to re-read the new cookie.
+      // A full navigation, not a client push: the proxy has to re-read the new cookie.
       window.location.href = params.get('next') || '/';
     } catch {
       setError('Could not reach the server. Try again.');
