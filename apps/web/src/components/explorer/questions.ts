@@ -42,7 +42,7 @@ export const QUESTIONS: Question[] = [
       'Layer 4 · natural person',
     ],
     run: () => api.beneficialOwners(BIDDER_A, 5),
-    position: (payload) => layered(payload, BIDDER_A),
+    position: (payload) => layered(payload),
     focusIds: [BIDDER_A],
     empty: {
       headline: 'No owner found within five layers',
@@ -87,10 +87,7 @@ export const QUESTIONS: Question[] = [
     subtitle: 'Every company reached from the OFAC SDN list, at any depth.',
     tracing: ['Reading the watchlist', 'Expanding holdings', 'Rolling up percentages'],
     run: () => api.watchlist(20),
-    position: (payload) => {
-      const listed = payload.nodes.find((n) => n.watchlisted === true);
-      return listed ? layered(payload, listed.id) : ring(payload);
-    },
+    position: (payload) => layered(payload),
     focusIds: [],
     empty: {
       headline: 'Nobody on the watchlist controls anything here',

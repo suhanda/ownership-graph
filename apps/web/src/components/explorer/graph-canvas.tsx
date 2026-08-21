@@ -70,6 +70,8 @@ export function GraphCanvas({
       return {
         id: node.id,
         name: node.id,
+        // Seed only: with layout 'force' these are the simulation's starting coordinates, so it
+        // relaxes out of a sensible ranking rather than out of noise.
         x: node.x,
         y: node.y,
         symbol: style.symbol,
@@ -81,9 +83,13 @@ export function GraphCanvas({
         },
         label: {
           show: true,
-          position: 'right' as const,
-          distance: 10,
-          formatter: () => truncate(node.label),
+          // Below and centred, not to the right: a right-hand label runs into the next node in the
+          // row, which is what turned dense results into a wall of overlapping text.
+          position: 'bottom' as const,
+          distance: 8,
+          width: 150,
+          overflow: 'truncate' as const,
+          formatter: () => truncate(node.label, graph.dense ? 18 : 26),
           color: ink,
           fontSize: 12,
           fontWeight: focus.has(node.id) ? (600 as const) : (500 as const),
@@ -100,7 +106,7 @@ export function GraphCanvas({
         source: link.source,
         target: link.target,
         label: {
-          show: link.pct !== undefined && link.pct !== null,
+          show: !graph.dense && link.pct !== undefined && link.pct !== null,
           formatter: () => `${Math.round((link.pct ?? 0) * 100)}%`,
           fontSize: 11,
           fontFamily: 'var(--font-mono), monospace',
@@ -156,13 +162,24 @@ export function GraphCanvas({
         series: [
           {
             type: 'graph',
-            layout: 'none',
+            layout: 'force',
+            // Seeded from the layered ranking (see lib/layout.ts) and then relaxed. Repulsion is
+            // set high enough that labels do not collide; edgeLength stays short so ownership
+            // chains read as chains rather than drifting apart.
+            force: {
+              initLayout: undefined,
+              repulsion: graph.dense ? 420 : 300,
+              edgeLength: graph.dense ? [90, 150] : [110, 170],
+              gravity: 0.08,
+              friction: 0.2,
+              layoutAnimation: true,
+            },
             roam: true,
-            draggable: false,
+            draggable: true,
             left: 60,
-            right: 190,
-            top: 40,
-            bottom: 40,
+            right: 60,
+            top: 50,
+            bottom: 60,
             edgeSymbolSize: 8,
             emphasis: { focus: 'adjacency' as const, scale: false },
             data: nodes,

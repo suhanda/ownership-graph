@@ -144,7 +144,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
       subtitle: label,
       status: 'ready',
       rows: [],
-      graph: root ? layered(graph, root.id) : undefined,
+      graph: layered(graph),
       focusIds: root ? [root.id] : [],
       meta: `${graph.nodes.length} nodes`,
       from: undefined,
@@ -192,7 +192,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
       ...c,
       status: result.data.rows.length === 0 ? 'empty' : 'ready',
       rows: result.data.rows,
-      graph: result.data.graph ? layered(result.data.graph, id) : undefined,
+      graph: result.data.graph ? layered(result.data.graph) : undefined,
       meta: `${result.data.rows.length} owner(s)`,
     }));
   };
