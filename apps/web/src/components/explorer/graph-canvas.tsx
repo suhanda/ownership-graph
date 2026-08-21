@@ -26,7 +26,10 @@ export interface GraphCanvasProps {
   graph: GraphPayload;
   /** Drawn with a ring — the subject of the question. */
   focusIds?: string[];
+  /** Single click: inspect. Fires only once a double-click can be ruled out. */
   onSelect?: (node: GraphNode) => void;
+  /** Double click: pull this node's neighbours into the current graph. */
+  onExpand?: (node: GraphNode) => void;
   /** How many other entities share a node, so link strength is judgeable. */
   shareCounts?: Record<string, number>;
 }
@@ -35,6 +38,7 @@ export function GraphCanvas({
   graph,
   focusIds = [],
   onSelect,
+  onExpand,
   shareCounts = {},
 }: GraphCanvasProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -218,17 +222,45 @@ export function GraphCanvas({
 
   useEffect(() => {
     const instance = chart.current;
-    if (!instance || !onSelect) return;
-    const handler = (p: { dataType?: string; data?: unknown }): void => {
-      const data = p.data as Record<string, unknown> | undefined;
-      const node = data?.['__node'] as GraphNode | undefined;
-      if (p.dataType !== 'edge' && node) onSelect(node);
+    if (!instance) return;
+
+    const nodeOf = (p: { dataType?: string; data?: unknown }): GraphNode | undefined => {
+      if (p.dataType === 'edge') return undefined;
+      return (p.data as Record<string, unknown> | undefined)?.['__node'] as GraphNode | undefined;
     };
-    instance.on('click', handler);
+
+    // ECharts fires `click` before `dblclick`, so a bare click handler would run on the first half
+    // of every double-click. Hold the single-click briefly and drop it if a second click lands.
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const clearPending = () => {
+      if (pending) clearTimeout(pending);
+      pending = null;
+    };
+
+    const onClick = (p: { dataType?: string; data?: unknown }): void => {
+      const node = nodeOf(p);
+      if (!node || !onSelect) return;
+      clearPending();
+      pending = setTimeout(() => {
+        pending = null;
+        onSelect(node);
+      }, 220);
+    };
+
+    const onDoubleClick = (p: { dataType?: string; data?: unknown }): void => {
+      const node = nodeOf(p);
+      clearPending();
+      if (node && onExpand) onExpand(node);
+    };
+
+    instance.on('click', onClick);
+    instance.on('dblclick', onDoubleClick);
     return () => {
-      instance.off('click', handler);
+      clearPending();
+      instance.off('click', onClick);
+      instance.off('dblclick', onDoubleClick);
     };
-  }, [onSelect]);
+  }, [onSelect, onExpand]);
 
   return (
     <div

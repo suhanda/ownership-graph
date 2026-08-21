@@ -56,6 +56,8 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
     meta: `${initial.rows.length} owners`,
   }));
 
+  const [selected, setSelected] = useState<GraphNode | null>(null);
+  const [expanding, setExpanding] = useState<string | null>(null);
   const [term, setTerm] = useState('');
   const [matches, setMatches] = useState<Record<string, unknown>[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -93,45 +95,53 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
     if (question) void runQuestion(question);
   }, [view.questionId, runQuestion]);
 
-  /** Clicking a node expands its neighbourhood — the way to roam beyond the planted scenario. */
-  const expand = useCallback(
-    async (node: GraphNode) => {
-      const previous = view;
-      setView((c) => ({
-        ...c,
-        questionId: 'neighbours',
-        title: node.label,
-        subtitle: `Everything directly connected to this ${node.kind.toLowerCase()}.`,
-        tracing: ['Expanding neighbours'],
-        status: 'loading',
-        focusIds: [node.id],
-        empty: {
-          headline: 'Nothing connected',
-          detail: 'This node has no relationships in the graph.',
-        },
-        from: { title: previous.title, restore: () => setView(previous) },
-      }));
-      const result = await api.neighbours(node.id, 40);
-      if (!result.ok) {
-        setView((c) => ({
-          ...c,
-          status: 'error',
-          error: result.error,
-          rows: [],
-          graph: undefined,
-        }));
-        return;
+  /**
+   * Double-click pulls a node's neighbours into the graph that is already on screen, rather than
+   * replacing it. "Expand" in a graph means grow, and replacing loses the context the user built up
+   * by expanding in the first place.
+   */
+  const expand = useCallback(async (node: GraphNode) => {
+    setExpanding(node.id);
+    const result = await api.neighbours(node.id, 40);
+    setExpanding(null);
+    if (!result.ok) {
+      setView((c) => ({ ...c, status: 'error', error: result.error }));
+      return;
+    }
+    const incoming = result.data.graph;
+    if (!incoming) return;
+
+    setView((current) => {
+      const base = current.graph ?? { nodes: [], links: [] };
+      const nodes = [...base.nodes];
+      const seen = new Set(nodes.map((n) => n.id));
+      let added = 0;
+      for (const n of incoming.nodes) {
+        if (!seen.has(n.id)) {
+          seen.add(n.id);
+          nodes.push(n);
+          added++;
+        }
       }
-      setView((c) => ({
-        ...c,
-        status: result.data.rows.length === 0 ? 'empty' : 'ready',
-        rows: [],
-        graph: result.data.graph,
-        meta: `${result.data.rows.length} neighbour(s)`,
-      }));
-    },
-    [view],
-  );
+      const links = [...base.links];
+      const linkKey = (l: { source: string; target: string; type: string }) =>
+        `${l.source}>${l.target}:${l.type}`;
+      const seenLinks = new Set(links.map(linkKey));
+      for (const l of incoming.links) {
+        if (!seenLinks.has(linkKey(l))) {
+          seenLinks.add(linkKey(l));
+          links.push(l);
+        }
+      }
+      return {
+        ...current,
+        status: 'ready',
+        graph: { nodes, links },
+        focusIds: [...new Set([...current.focusIds, node.id])],
+        meta: added === 0 ? 'already expanded' : `+${added} node(s) · ${nodes.length} total`,
+      };
+    });
+  }, []);
 
   /** A chat answer repaints the chart in place rather than opening a separate view. */
   const showChatGraph = useCallback((graph: GraphPayload, label: string) => {
@@ -306,7 +316,8 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
             <GraphCanvas
               graph={view.graph}
               focusIds={view.focusIds}
-              onSelect={(n) => void expand(n)}
+              onSelect={setSelected}
+              onExpand={(n) => void expand(n)}
             />
           ) : null}
           {view.status === 'loading' ? <TracingState steps={view.tracing} /> : null}
@@ -317,6 +328,25 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
             <ErrorState error={view.error} onRetry={retry} />
           ) : null}
         </div>
+
+        {view.status === 'ready' && selected ? (
+          <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-sm">
+            <span className="font-medium">{selected.label}</span>
+            <span className="text-xs text-muted-foreground">
+              {selected.kind}
+              {selected.jurisdictionCode ? ` · ${selected.jurisdictionCode}` : ''}
+              {selected.legalForm ? ` · ${selected.legalForm}` : ''}
+            </span>
+            {selected.watchlisted ? (
+              <Badge variant="outline" className="border-destructive/40 text-destructive">
+                sanctioned
+              </Badge>
+            ) : null}
+            <span className="ml-auto text-xs text-muted-foreground">
+              {expanding === selected.id ? 'expanding…' : 'double-click to expand'}
+            </span>
+          </div>
+        ) : null}
 
         {view.status === 'ready' && view.rows.length > 0 ? (
           <section className="max-h-[35%] overflow-y-auto border-t border-border px-4 py-3">
