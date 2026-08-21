@@ -26,14 +26,35 @@ import type { GraphService, Rows } from '../graph/graph.port';
  * `emit` is the side channel to the SSE stream: the string a tool returns goes to Claude, while the
  * graph payload and rows go straight to the browser so the chart repaints before narration starts.
  */
+/** Capped: tool results are replayed on every later turn, so unbounded rows compound. */
+const MAX_ROWS_TO_MODEL = 12;
+
 export function buildTools(graph: GraphService, emit: (event: ChatEvent) => void) {
+  /**
+   * The returned string is the model's *only* view of the result — the graph payload and the full
+   * rows go straight to the browser and never reach it. Returning just a count ("1 ring(s)") left
+   * the model narrating findings it could not see, so it produced vague answers that named nothing.
+   *
+   * Rows are capped because they are re-sent on every subsequent turn of the conversation.
+   */
   const send = (
     name: ToolName,
     summary: string,
     extra: { rows?: Rows; graph?: GraphPayload },
   ): string => {
     emit({ type: 'tool_result', name, summary, ...extra });
-    return summary;
+    const rows = extra.rows ?? [];
+    if (rows.length === 0)
+      return `${summary}. No results — report this as a finding, not an error.`;
+    const shown = rows.slice(0, MAX_ROWS_TO_MODEL);
+    const omitted = rows.length - shown.length;
+    return [
+      summary,
+      JSON.stringify(shown),
+      omitted > 0 ? `(${omitted} further rows omitted; say so if it matters)` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
   };
 
   return [

@@ -13,6 +13,20 @@ type Entry =
   | { kind: 'tool'; name: string; args: string; summary?: string }
   | { kind: 'notice'; text: string };
 
+/** Only the spoken turns; tool calls and local notices are not part of the conversation. */
+function historyFrom(entries: Entry[]): { role: 'user' | 'assistant'; content: string }[] {
+  return entries
+    .filter(
+      (e): e is Extract<Entry, { kind: 'you' | 'claude' }> =>
+        e.kind === 'you' || e.kind === 'claude',
+    )
+    .slice(-10)
+    .map((e) => ({
+      role: e.kind === 'you' ? ('user' as const) : ('assistant' as const),
+      content: e.text,
+    }));
+}
+
 const SUGGESTIONS = [
   'Who owns Harbour Line Construction?',
   'Is anyone here sanctioned?',
@@ -46,7 +60,9 @@ export function ChatPanel({ onGraph }: { onGraph: (graph: GraphPayload, label: s
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: question, history: [] }),
+        // Without this a follow-up like "yes" or "now show me who owns that" has no antecedent,
+        // and the model falls back to describing what it can do.
+        body: JSON.stringify({ message: question, history: historyFrom(entries) }),
       });
 
       if (!response.ok || !response.body) {
@@ -80,6 +96,9 @@ export function ChatPanel({ onGraph }: { onGraph: (graph: GraphPayload, label: s
           const event: ChatEvent = parsed.data;
 
           if (event.type === 'tool_call') {
+            // The turn may produce several assistant messages around tool calls. Reset the
+            // accumulator, or the next message reopens with the previous one's text.
+            streamed = '';
             push({ kind: 'tool', name: event.name, args: JSON.stringify(event.args) });
           } else if (event.type === 'tool_result') {
             if (event.graph) onGraph(event.graph, event.summary);
