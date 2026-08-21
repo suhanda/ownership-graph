@@ -146,8 +146,14 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const startedAt = Date.now();
 
-  log('generating dataset (deterministic)');
-  const data = generate();
+  // Scale is configurable so the graph can be grown without editing the generator. The free tier is
+  // 0.5 vCPU, and the ownership queries are variable-length traversals, so query time grows with
+  // path count rather than node count — measure after changing this, do not assume.
+  const companyCount = Number(process.env['SEED_COMPANIES'] ?? 2000);
+  const personCount = Number(process.env['SEED_PEOPLE'] ?? 1200);
+
+  log(`generating dataset (deterministic · ${companyCount} companies, ${personCount} people)`);
+  const data = generate({ companyCount, personCount });
   const nodeCount =
     data.jurisdictions.length +
     data.addresses.length +

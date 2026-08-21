@@ -3,6 +3,9 @@ import type { Dataset } from './generate';
 
 const BATCH = 500;
 
+/** Ids are prefixed by kind, which is what lets the loader pick the right label to MATCH on. */
+const isPerson = (id: string): boolean => id.startsWith('P-');
+
 export interface LoadLogger {
   (message: string): void;
 }
@@ -118,13 +121,25 @@ export async function load(driver: Driver, data: Dataset, log: LoadLogger): Prom
   );
 
   log('relationships');
+  // Split by owner label. A label-less MATCH (a {id: ...}) cannot use the unique-constraint index,
+  // so it scans every node once per row — 500 rows against 10,000 nodes is five million scans per
+  // batch, which exceeded the server's deadline. With a label it is an index lookup.
   await batched(
     driver,
-    'OWNS',
+    'OWNS (person)',
     `UNWIND $rows AS r
-    MATCH (a {id: r.from}) MATCH (b:Company {id: r.to})
+    MATCH (a:Person {id: r.from}) MATCH (b:Company {id: r.to})
     MERGE (a)-[e:OWNS]->(b) SET e.pct = r.pct, e.since = date(r.since)`,
-    data.owns,
+    data.owns.filter((r) => isPerson(r.from)),
+    log,
+  );
+  await batched(
+    driver,
+    'OWNS (company)',
+    `UNWIND $rows AS r
+    MATCH (a:Company {id: r.from}) MATCH (b:Company {id: r.to})
+    MERGE (a)-[e:OWNS]->(b) SET e.pct = r.pct, e.since = date(r.since)`,
+    data.owns.filter((r) => !isPerson(r.from)),
     log,
   );
   await batched(
@@ -138,11 +153,20 @@ export async function load(driver: Driver, data: Dataset, log: LoadLogger): Prom
   );
   await batched(
     driver,
-    'NOMINEE_FOR',
+    'NOMINEE_FOR (person)',
     `UNWIND $rows AS r
-    MATCH (n:Person {id: r.nominee}) MATCH (p {id: r.principal})
+    MATCH (n:Person {id: r.nominee}) MATCH (p:Person {id: r.principal})
     MERGE (n)-[e:NOMINEE_FOR]->(p) SET e.since = date(r.since)`,
-    data.nominees,
+    data.nominees.filter((r) => isPerson(r.principal)),
+    log,
+  );
+  await batched(
+    driver,
+    'NOMINEE_FOR (company)',
+    `UNWIND $rows AS r
+    MATCH (n:Person {id: r.nominee}) MATCH (p:Company {id: r.principal})
+    MERGE (n)-[e:NOMINEE_FOR]->(p) SET e.since = date(r.since)`,
+    data.nominees.filter((r) => !isPerson(r.principal)),
     log,
   );
   await batched(
@@ -201,11 +225,20 @@ export async function load(driver: Driver, data: Dataset, log: LoadLogger): Prom
   );
   await batched(
     driver,
-    'LISTED_ON',
+    'LISTED_ON (person)',
     `UNWIND $rows AS r
-    MATCH (p {id: r.party}) MATCH (w:Watchlist {id: r.watchlist})
+    MATCH (p:Person {id: r.party}) MATCH (w:Watchlist {id: r.watchlist})
     MERGE (p)-[e:LISTED_ON]->(w) SET e.since = date(r.since), e.program = r.program`,
-    data.listedOn,
+    data.listedOn.filter((r) => isPerson(r.party)),
+    log,
+  );
+  await batched(
+    driver,
+    'LISTED_ON (company)',
+    `UNWIND $rows AS r
+    MATCH (p:Company {id: r.party}) MATCH (w:Watchlist {id: r.watchlist})
+    MERGE (p)-[e:LISTED_ON]->(w) SET e.since = date(r.since), e.program = r.program`,
+    data.listedOn.filter((r) => !isPerson(r.party)),
     log,
   );
 }
