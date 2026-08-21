@@ -86,6 +86,12 @@ MATCH p = (listed)-[:OWNS*1..6]->(c:Company)
 WHERE length(p) <= $maxDepth
 // The cap is applied to the paths, not just the rows: capping rows alone left the subgraph
 // collecting every path, which produced 173 nodes for 25 rows and an unreadable chart.
+//
+// ORDER BY before the cap is not cosmetic. Without it, which paths survive depends on execution
+// order, so two runs against byte-identical data returned 19 and 20 companies — enough to make a
+// screenshot disagree with a recording. Shortest chains first is also the better answer: a
+// two-hop holding is more directly controlled than a six-hop one.
+WITH p ORDER BY length(p), last(nodes(p)).id
 WITH collect(p)[0..$limit] AS paths
 UNWIND paths AS po
 WITH paths, head(nodes(po)) AS listed, last(nodes(po)) AS c,
