@@ -7,6 +7,7 @@ import {
   type Health,
 } from '@ownership/shared';
 import { z } from 'zod';
+import { normaliseBaseUrl } from './base-url';
 
 const onServer = typeof window === 'undefined';
 
@@ -20,7 +21,9 @@ const onServer = typeof window === 'undefined';
  * Neither of these env vars carries a NEXT_PUBLIC_ prefix, so neither is inlined into the bundle.
  */
 const base = (): string =>
-  onServer ? `${process.env.API_URL ?? 'http://localhost:3101'}/graph` : '/api/graph';
+  onServer
+    ? `${normaliseBaseUrl(process.env.API_URL, 'http://localhost:3101')}/graph`
+    : '/api/graph';
 
 const authHeaders = (): Record<string, string> => {
   if (!onServer) return {};
@@ -69,7 +72,7 @@ const qs = (params: Record<string, string | number | undefined>): string => {
 
 /** /health sits outside /graph, so it needs its own base. */
 async function callAbsolute<T>(path: string, schema: z.ZodType<T>): Promise<Fetched<T>> {
-  const root = onServer ? (process.env.API_URL ?? 'http://localhost:3101') : '/api';
+  const root = onServer ? normaliseBaseUrl(process.env.API_URL, 'http://localhost:3101') : '/api';
   try {
     const response = await fetch(`${root}${path}`, { cache: 'no-store', headers: authHeaders() });
     const body: unknown = await response.json().catch(() => null);

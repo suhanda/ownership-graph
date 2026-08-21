@@ -1,8 +1,9 @@
 import { cookies } from 'next/headers';
+import { normaliseBaseUrl } from './base-url';
 import { SESSION_COOKIE, verifySession } from './session';
 
 /** The real API. Server-only: never exposed with a NEXT_PUBLIC_ prefix, so it stays out of the bundle. */
-export const UPSTREAM = process.env.API_URL ?? 'http://localhost:3101';
+export const UPSTREAM = normaliseBaseUrl(process.env.API_URL, 'http://localhost:3101');
 
 /** Sent to the API by the proxy. The browser never sees it. */
 export function upstreamHeaders(extra: Record<string, string> = {}): Record<string, string> {

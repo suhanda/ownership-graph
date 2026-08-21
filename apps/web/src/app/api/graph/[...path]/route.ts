@@ -26,6 +26,18 @@ export async function GET(
   try {
     const upstream = await fetch(target, { headers: upstreamHeaders(), cache: 'no-store' });
     const body = await upstream.text();
+
+    // The API has no 404s of its own — an unknown id returns 200 with an empty array. So a 404 here
+    // means the request never reached a route, which in practice means API_URL is wrong.
+    if (upstream.status === 404) {
+      return NextResponse.json(
+        {
+          kind: 'database_misconfigured',
+          message: 'The API could not be reached at its configured address. Check API_URL.',
+        },
+        { status: 502 },
+      );
+    }
     return new Response(body, {
       status: upstream.status,
       headers: {
