@@ -10,6 +10,12 @@ const envSchema = z.object({
   COGNODB_PASSWORD: z.string().min(1, 'COGNODB_PASSWORD is required'),
   ANTHROPIC_API_KEY: z.string().optional(),
   /**
+   * Shared secret the web app's server sends on every call. Optional: unset means no check, so
+   * local development needs no ceremony. Set in production, where the browser never talks to this
+   * API directly — the Next proxy does, and it holds the secret server-side.
+   */
+  API_SHARED_SECRET: z.string().optional(),
+  /**
    * Claude Haiku 4.5 by default — the cheapest current model at $1/$5 per million tokens, against
    * Opus 5 at $5/$25. The work here is picking one of eight tools and writing three sentences about
    * the result, which does not need a frontier model.

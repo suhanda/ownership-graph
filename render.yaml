@@ -29,8 +29,10 @@ services:
         sync: false
       - key: ANTHROPIC_MODEL
         value: claude-haiku-4-5
+      - key: API_SHARED_SECRET
+        generateValue: true # Render generates it; copy the value into Vercel
       - key: CORS_ORIGIN
-        sync: false # the Vercel production domain
+        sync: false # only needed if anything calls the API directly; the web app proxies
       - key: CHAT_DAILY_TOKEN_BUDGET
         value: '300000'
       - key: CHAT_RATE_LIMIT

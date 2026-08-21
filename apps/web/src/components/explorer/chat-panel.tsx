@@ -10,7 +10,6 @@ import { Send, Sparkles, Wrench } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { API_URL } from '@/lib/api';
 import { Markdown } from './markdown';
 
 type Entry =
@@ -73,7 +72,7 @@ export function ChatPanel({
     setBusy(true);
 
     try {
-      const response = await fetch(`${API_URL}/chat`, {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // Without this a follow-up like "yes" or "now show me who owns that" has no antecedent,

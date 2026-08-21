@@ -276,6 +276,18 @@ pnpm dev      # API on :3101, web on :3000
 Open <http://localhost:3000>. The page reports the live database connection, so a misconfigured
 instance is visible immediately rather than at the first query.
 
+## Access
+
+The hosted demo is behind a shared password (`APP_PASSWORD`), supplied in the submission email. There
+are no accounts: a reviewer should not have to register to look at a take-home.
+
+The browser never talks to the API directly. Every call goes through a same-origin route handler in
+the Next app, which attaches a shared secret the client bundle never contains — so the session cookie
+protects the data as well as the pages, and there is no CORS surface at all. Verified: neither the
+password nor the secret appears in any client chunk.
+
+With `APP_PASSWORD` unset the gate is off entirely, which is the local-development default.
+
 ## Deployment
 
 The API runs on Render's free tier and the web app on Vercel. `render.yaml` is a Blueprint;

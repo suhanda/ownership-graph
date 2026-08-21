@@ -132,8 +132,10 @@ Locked during charting, before any ticket existed:
 
 ## Out of scope
 
-- **Authentication and multi-tenancy.** No requirement in the assignment, and it would eat clock that the
-  hosted demo and recording need.
+- ~~**Authentication and multi-tenancy.**~~ **Partly back in scope** on the user's instruction: a shared
+  password gate now protects the hosted demo, with the browser's API calls proxied through Next so the
+  secret stays server-side. Multi-tenancy and real accounts remain out — a reviewer should not have to
+  register to look at a take-home.
 - **Real ICIJ Offshore Leaks ingestion.** Ruled out while charting: large, messy, needs attribution
   handling, and it cannot guarantee a clean demo path exists inside 48 hours. Realistic synthetic with
   planted patterns wins on control.
