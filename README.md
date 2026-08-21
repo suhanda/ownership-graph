@@ -4,7 +4,7 @@
 [CognoDB](https://console.cognodb.com). Ask in plain language, or click through six investigative
 questions, and watch the answer draw itself.
 
-> **Live demo:** _(pending deployment — see [Deployment](#deployment))_
+> **Live demo:** <https://ownership-graph-web.vercel.app> — password in the submission email (see [Access](#access))
 > **Recording:** _(pending)_
 
 ---
