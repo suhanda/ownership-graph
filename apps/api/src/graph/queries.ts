@@ -189,6 +189,31 @@ RETURN addr.line1 AS address, count(DISTINCT byAddress) AS addressShareCount,
        collect(DISTINCT byAgent.name)[0..$limit] AS alsoWithAgent`,
 };
 
+/**
+ * The induced subgraph over a set of ids: those nodes, plus every relationship between them.
+ *
+ * Deliberately takes ids rather than a generated query. The model already holds ids from whatever
+ * tool it just called, the projection stays a fixed parameterised query, and the result is always a
+ * shape the chart can draw — none of which is true if the model composes the projection itself.
+ */
+export const inducedSubgraph: GraphQuery = {
+  name: 'inducedSubgraph',
+  question: 'Draw these entities and how they connect.',
+  drawable: true,
+  cypher: `
+MATCH (n) WHERE coalesce(n.id, n.code) IN $ids
+WITH collect(DISTINCT n) AS ns
+// Both endpoints are filtered by the id list rather than by binding them and relying on the
+// pattern to constrain the target: on CognoDB, OPTIONAL MATCH (a)-[r]->(b) with a and b already
+// bound ignores b and returns every outgoing relationship from a — measured, 23 links for a
+// 6-node set whose true induced subgraph has 5.
+OPTIONAL MATCH (a)-[rel]->(b)
+WHERE coalesce(a.id, a.code) IN $ids AND coalesce(b.id, b.code) IN $ids
+WITH ns, [x IN collect(DISTINCT rel) WHERE x IS NOT NULL] AS rs
+WITH ns, rs, [] AS rows
+${PROJECT_SUBGRAPH.replace('WITH rs, collect({', 'WITH rows, rs, collect({').replace('RETURN nodes,', 'RETURN rows, nodes,')}`,
+};
+
 /** Rows only — this is a lookup, not an answer. */
 export const resolveEntity: GraphQuery = {
   name: 'resolveEntity',
@@ -210,6 +235,7 @@ export const QUERIES = {
   sharedRegistration,
   resolveEntity,
   neighbourhood,
+  inducedSubgraph,
 } as const;
 
 export type QueryName = keyof typeof QUERIES;

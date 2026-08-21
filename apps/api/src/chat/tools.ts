@@ -151,6 +151,39 @@ export function buildTools(graph: GraphService, emit: (event: ChatEvent) => void
     }),
 
     betaZodTool({
+      name: 'draw_on_canvas',
+      description:
+        'Draw a set of entities on the graph canvas beside this conversation, showing how they ' +
+        'connect. Use when the user asks to see, draw, visualise or map something, or when a ' +
+        'picture would explain an answer better than prose. Pass the ids you already have from an ' +
+        'earlier tool result. The canvas replaces whatever is currently shown.',
+      inputSchema: z.object({
+        ids: z
+          .array(z.string().min(1))
+          .min(2)
+          .max(60)
+          .describe('Entity ids to draw. Every relationship between them is drawn automatically.'),
+        title: z.string().min(1).describe('A short caption for what is being shown.'),
+      }),
+      run: async (args) => {
+        const result = await graph.inducedSubgraph(args.ids);
+        const drawn = result.graph?.nodes.length ?? 0;
+        emit({ type: 'tool_result', name: 'draw_on_canvas', summary: args.title, ...result });
+        if (drawn === 0) {
+          return 'None of those ids exist. Resolve names with find_entity first, then draw.';
+        }
+        const missing = args.ids.length - drawn;
+        return [
+          `Drawn on the canvas: ${drawn} entities, ${result.graph?.links.length ?? 0} connections.`,
+          missing > 0 ? `${missing} id(s) were not found and were skipped.` : '',
+          'Tell the user what to look at in the diagram rather than listing it again.',
+        ]
+          .filter(Boolean)
+          .join(' ');
+      },
+    }),
+
+    betaZodTool({
       name: 'run_cypher',
       description:
         'Run a read-only Cypher query against the graph, for questions the other tools do not cover — ' +
@@ -219,6 +252,11 @@ corporate ownership: companies, people, shareholdings, officer roles, nominees, 
 corporate agents, jurisdictions and sanctions watchlists.
 
 Answer only from tool results. Never guess an ownership percentage, a name or a relationship.
+
+There is a graph canvas beside this conversation and you can draw on it. Most tools draw their own
+result automatically. When the user asks to see, draw, visualise or map something — or when a
+diagram would explain an answer better than prose — call draw_on_canvas with the ids you already
+have. Never say you cannot draw, and never suggest an external diagramming tool.
 
 The graph schema, for run_cypher:
   (:Person {id, name, bornYear})

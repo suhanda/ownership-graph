@@ -48,6 +48,10 @@ so the official driver works, but the Cypher surface is a reimplementation. Meas
 - No `SHOW PROCEDURES`, `SHOW DATABASES`, `db.info()`, `dbms.components()`. **The supported surface
   cannot be enumerated**, so every query must be run against the live instance as it is written.
   Do not trust Neo4j documentation as evidence that something works here.
+- **OPTIONAL MATCH with both endpoints already bound does not constrain the target.**
+  `OPTIONAL MATCH (a)-[r]->(b)` where `a` and `b` are bound returns every outgoing relationship from
+  `a`, ignoring `b` — measured at 23 links for a 6-node set whose induced subgraph has 5. Filter both
+  endpoints explicitly instead.
 - No quantified path patterns (`->{1,5}`). Use `-[:REL*1..5]->`.
 - **Variable-length paths use node uniqueness, not relationship uniqueness.** A path may not revisit a
   node. Cycle queries written as `(c)-[*]->(c)` return zero rows rather than erroring — the failure is

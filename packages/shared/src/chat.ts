@@ -19,6 +19,7 @@ export const toolNameSchema = z.enum([
   'find_shared_registration',
   'expand_neighbours',
   'run_cypher',
+  'draw_on_canvas',
 ]);
 export type ToolName = z.infer<typeof toolNameSchema>;
 

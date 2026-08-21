@@ -97,6 +97,10 @@ export class GraphService implements GraphPort {
    * CREATE and DELETE. So the query is planned first and refused if the planner intends any write.
    * This is the actual boundary; the access mode is not one.
    */
+  inducedSubgraph(ids: string[]): Promise<QueryResult> {
+    return this.drawable(QUERIES.inducedSubgraph, { ids });
+  }
+
   async runReadOnly(cypher: string, params: Record<string, unknown>): Promise<Rows> {
     const plan = await this.cognodb.explain(cypher, params);
     const writes = planWrites(planOperators(plan));

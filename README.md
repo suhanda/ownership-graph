@@ -175,6 +175,10 @@ WHERE length(p) <= $maxDepth
 
 **No APOC, no GDS.** Every query is plain Cypher.
 
+**`OPTIONAL MATCH` does not constrain a bound target.** With both endpoints already bound,
+`OPTIONAL MATCH (a)-[r]->(b)` returns every outgoing relationship from `a` and ignores `b` — 23 links
+for a six-node set whose induced subgraph has five. Both endpoints are filtered explicitly instead.
+
 Two more things measured rather than assumed:
 
 - **Hub nodes poison shortest-path queries.** Unconstrained, `hiddenLink` returned five "connections"
@@ -216,6 +220,9 @@ without complaint, so the usual driver guarantee does not hold here:
 
 Verified against the live database: reads run, and `CREATE`, `MERGE`, `SET` and `DETACH DELETE` are
 each refused by operator name _before execution_, with the graph left byte-identical afterwards.
+
+It can also draw: `draw_on_canvas` takes ids the model already holds and renders their induced
+subgraph, so "show me how these connect" repaints the chart rather than producing a paragraph.
 
 The model is **Claude Haiku 4.5** — the cheapest current model, and ample for choosing among eight
 tools and writing three sentences about the result. `ANTHROPIC_MODEL` changes it, and the request
