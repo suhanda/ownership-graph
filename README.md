@@ -5,7 +5,7 @@
 questions, and watch the answer draw itself.
 
 > **Live demo:** <https://ownership-graph-web.vercel.app> — password in the submission email (see [Access](#access))
-> **Recording:** _(pending)_
+> **Recording:** [Demo Ownership Graph App](https://youtu.be/u5CyeKGQ5wk)
 
 ---
 
