@@ -27,6 +27,19 @@ export async function GET(
     const upstream = await fetch(target, { headers: upstreamHeaders(), cache: 'no-store' });
     const body = await upstream.text();
 
+    // A 401 from upstream is never the caller's fault: the session was already checked above, so
+    // this can only be the shared secret disagreeing between the two deployments. Say which knob.
+    if (upstream.status === 401) {
+      return NextResponse.json(
+        {
+          kind: 'database_misconfigured',
+          message:
+            'The API rejected this deployment\u2019s credential. API_SHARED_SECRET must be identical on the web app and the API.',
+        },
+        { status: 502 },
+      );
+    }
+
     // The API has no 404s of its own — an unknown id returns 200 with an empty array. So a 404 here
     // means the request never reached a route, which in practice means API_URL is wrong.
     if (upstream.status === 404) {
