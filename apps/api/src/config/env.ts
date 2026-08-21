@@ -8,7 +8,18 @@ const envSchema = z.object({
   COGNODB_URI: z.string().min(1, 'COGNODB_URI is required (bolt+s://...)'),
   COGNODB_USER: z.string().min(1).default('cognodb'),
   COGNODB_PASSWORD: z.string().min(1, 'COGNODB_PASSWORD is required'),
+  /** Direct Anthropic. Sent as `x-api-key`. */
   ANTHROPIC_API_KEY: z.string().optional(),
+  /**
+   * Point the Anthropic SDK at a gateway that speaks the Messages API.
+   * OpenRouter's "Anthropic Skin": https://openrouter.ai/api
+   */
+  LLM_BASE_URL: z.string().url().optional(),
+  /**
+   * Bearer token for that gateway — an OpenRouter key starts `sk-or-`. Gateways authenticate with
+   * `Authorization: Bearer`, not `x-api-key`, which is a different SDK option entirely.
+   */
+  LLM_AUTH_TOKEN: z.string().optional(),
   /**
    * Shared secret the web app's server sends on every call. Optional: unset means no check, so
    * local development needs no ceremony. Set in production, where the browser never talks to this

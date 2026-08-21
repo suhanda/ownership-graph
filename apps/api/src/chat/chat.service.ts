@@ -59,16 +59,28 @@ export class ChatService {
     private readonly budget: BudgetService,
   ) {
     const env = loadEnv();
-    const key = env.ANTHROPIC_API_KEY;
     this.model = env.ANTHROPIC_MODEL;
 
-    // An absent key is a supported state, not a crash: the graph is the product, the chat is a layer
-    // on top of it, and the UI degrades to the preset questions.
-    this.client = key ? new Anthropic({ apiKey: key }) : null;
+    // Two ways in, and they differ in more than a URL. Anthropic authenticates with `x-api-key`;
+    // gateways that re-expose the Messages API — OpenRouter's "Anthropic Skin", for instance —
+    // authenticate with `Authorization: Bearer`, which is the SDK's `authToken` option and not
+    // `apiKey`. Passing a key to the wrong option sends the wrong header and fails as a bare 401.
+    const gateway = env.LLM_BASE_URL;
+    const token = env.LLM_AUTH_TOKEN ?? env.ANTHROPIC_API_KEY;
 
-    if (!key)
-      this.logger.warn('ANTHROPIC_API_KEY is not set — chat is disabled, graph is unaffected');
-    else this.logger.log(`Chat using ${this.model}`);
+    // An absent credential is a supported state, not a crash: the graph is the product, the chat is
+    // a layer on top of it, and the UI degrades to the preset questions.
+    this.client = token
+      ? gateway
+        ? new Anthropic({ baseURL: gateway, authToken: token })
+        : new Anthropic({ apiKey: token })
+      : null;
+
+    if (!token) {
+      this.logger.warn('No LLM credential set — chat is disabled, graph is unaffected');
+    } else {
+      this.logger.log(`Chat using ${this.model} via ${gateway ?? 'Anthropic'}`);
+    }
   }
 
   status(): ChatStatus {

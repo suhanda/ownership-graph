@@ -29,6 +29,12 @@ services:
         sync: false
       - key: ANTHROPIC_MODEL
         value: claude-haiku-4-5
+      # Optional: route through a gateway that speaks the Anthropic Messages API, e.g. OpenRouter
+      # (LLM_BASE_URL=https://openrouter.ai/api, LLM_AUTH_TOKEN=sk-or-..., model ~anthropic/...).
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_AUTH_TOKEN
+        sync: false
       - key: API_SHARED_SECRET
         generateValue: true # Render generates it; copy the value into Vercel
       - key: CORS_ORIGIN

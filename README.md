@@ -224,6 +224,14 @@ each refused by operator name _before execution_, with the graph left byte-ident
 It can also draw: `draw_on_canvas` takes ids the model already holds and renders their induced
 subgraph, so "show me how these connect" repaints the chart rather than producing a paragraph.
 
+Because the chat speaks the Anthropic Messages API rather than a vendor SDK's own shape, the provider
+is configuration. Setting `LLM_BASE_URL` and `LLM_AUTH_TOKEN` routes the same code, tools and prompts
+through a gateway that re-exposes that API — OpenRouter's Anthropic endpoint, for instance. One
+detail decides whether it works: gateways authenticate with `Authorization: Bearer` while Anthropic
+uses `x-api-key`, and those are different options on the SDK client, so a key passed to the wrong one
+fails as an unexplained 401. Worth knowing that OpenRouter's Anthropic endpoint serves only Anthropic
+models; its wider catalogue sits behind an OpenAI-shaped API this SDK does not speak.
+
 The model is **Claude Haiku 4.5** — the cheapest current model, and ample for choosing among eight
 tools and writing three sentences about the result. `ANTHROPIC_MODEL` changes it, and the request
 adapts: adaptive thinking and `output_config.effort` arrived with the 4.6 generation and are
