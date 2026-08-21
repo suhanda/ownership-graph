@@ -21,6 +21,29 @@ function modelFeatures(model: string): { adaptiveThinking: boolean; effort: bool
   return { adaptiveThinking: modern, effort: modern };
 }
 
+/**
+ * Prefixes the question with what is currently drawn, so the model can reason about the screen the
+ * user is looking at. Kept compact — it is re-sent on every turn.
+ */
+function withCanvas(request: ChatRequest): string {
+  const canvas = request.canvas;
+  if (!canvas || canvas.nodes.length === 0) return request.message;
+  const shown = canvas.nodes
+    .map((n) => `${n.label} [${n.kind}${n.watchlisted ? ', sanctioned' : ''}] id=${n.id}`)
+    .join('; ');
+  const more =
+    canvas.totalNodes > canvas.nodes.length
+      ? ` (+${canvas.totalNodes - canvas.nodes.length} more)`
+      : '';
+  return [
+    `<canvas title="${canvas.title}">`,
+    `${shown}${more}`,
+    '</canvas>',
+    '',
+    request.message,
+  ].join('\n');
+}
+
 /** Ticket 07: bounded so a single question cannot become an unbounded agent loop. */
 const MAX_TOOL_ITERATIONS = 6;
 const MAX_TOKENS = 2048;
@@ -118,7 +141,10 @@ export class ChatService {
       ],
       messages: [
         ...request.history.map((turn) => ({ role: turn.role, content: turn.content })),
-        { role: 'user' as const, content: request.message },
+        // Canvas state goes here, not in the system prompt: the system block is cache_control'd
+        // and byte-stable, and injecting something that changes every turn would invalidate the
+        // prefix cache on every request.
+        { role: 'user' as const, content: withCanvas(request) },
       ],
       tools,
       max_iterations: MAX_TOOL_ITERATIONS,

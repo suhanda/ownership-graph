@@ -1,6 +1,6 @@
 'use client';
 
-import type { ApiError, GraphNode, GraphPayload, Health } from '@ownership/shared';
+import type { ApiError, CanvasState, GraphNode, GraphPayload, Health } from '@ownership/shared';
 import { ArrowLeft, Database, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -206,6 +206,19 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
     }));
   };
 
+  // Capped at 40 to match the schema and keep the per-turn cost bounded; the count tells the model
+  // when it is only seeing part of the picture.
+  const canvas: CanvasState = {
+    title: view.title,
+    nodes: (view.graph?.nodes ?? []).slice(0, 40).map((n) => ({
+      id: n.id,
+      label: n.label,
+      kind: n.kind,
+      ...(n.watchlisted ? { watchlisted: true } : {}),
+    })),
+    totalNodes: view.graph?.nodes.length ?? 0,
+  };
+
   const connected = health?.database === 'reachable';
 
   return (
@@ -355,7 +368,7 @@ export function Explorer({ initial, health }: { initial: QueryResult; health: He
         ) : null}
       </main>
 
-      <ChatPanel onGraph={showChatGraph} />
+      <ChatPanel onGraph={showChatGraph} canvas={canvas} />
     </div>
   );
 }

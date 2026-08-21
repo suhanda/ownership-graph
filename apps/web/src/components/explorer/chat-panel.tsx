@@ -1,6 +1,11 @@
 'use client';
 
-import { chatEventSchema, type ChatEvent, type GraphPayload } from '@ownership/shared';
+import {
+  chatEventSchema,
+  type CanvasState,
+  type ChatEvent,
+  type GraphPayload,
+} from '@ownership/shared';
 import { Send, Sparkles, Wrench } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -38,7 +43,14 @@ const SUGGESTIONS = [
  * Consumes the SSE contract in `packages/shared/src/chat.ts`. The chart repaints the moment a
  * `tool_result` carrying a graph arrives — before narration starts — which is what hides the query.
  */
-export function ChatPanel({ onGraph }: { onGraph: (graph: GraphPayload, label: string) => void }) {
+export function ChatPanel({
+  onGraph,
+  canvas,
+}: {
+  onGraph: (graph: GraphPayload, label: string) => void;
+  /** What the chart is showing, so the model can reason about the screen the user sees. */
+  canvas?: CanvasState;
+}) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -63,7 +75,7 @@ export function ChatPanel({ onGraph }: { onGraph: (graph: GraphPayload, label: s
         headers: { 'content-type': 'application/json' },
         // Without this a follow-up like "yes" or "now show me who owns that" has no antecedent,
         // and the model falls back to describing what it can do.
-        body: JSON.stringify({ message: question, history: historyFrom(entries) }),
+        body: JSON.stringify({ message: question, history: historyFrom(entries), canvas }),
       });
 
       if (!response.ok || !response.body) {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { graphPayloadSchema } from './graph';
+import { graphPayloadSchema, nodeKindSchema } from './graph';
 
 /**
  * The eight tools Claude may call. The model never writes Cypher — it picks a tool and fills typed
@@ -65,6 +65,31 @@ export const chatEventSchema = z.discriminatedUnion('type', [
 ]);
 export type ChatEvent = z.infer<typeof chatEventSchema>;
 
+/**
+ * What the graph canvas is currently showing. Sent with each question so the model can answer
+ * "what am I looking at?", "who is the sanctioned one here?" or "add Clara Voss to this" — none of
+ * which are answerable from the conversation text alone.
+ *
+ * Capped, because this rides along on every turn.
+ */
+export const canvasStateSchema = z.object({
+  title: z.string().default(''),
+  nodes: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        kind: nodeKindSchema,
+        watchlisted: z.boolean().optional(),
+      }),
+    )
+    .max(40)
+    .default([]),
+  /** Present when the canvas holds more than was sent. */
+  totalNodes: z.number().int().nonnegative().default(0),
+});
+export type CanvasState = z.infer<typeof canvasStateSchema>;
+
 export const chatRequestSchema = z.object({
   message: z.string().min(1).max(500),
   /** Prior turns, so "now show me who owns that" resolves. Trimmed server-side. */
@@ -72,6 +97,7 @@ export const chatRequestSchema = z.object({
     .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() }))
     .max(20)
     .default([]),
+  canvas: canvasStateSchema.optional(),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
