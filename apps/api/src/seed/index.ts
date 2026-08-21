@@ -1,4 +1,4 @@
-import neo4j, { int, type Driver } from 'neo4j-driver';
+import neo4j, { int, type Driver, type Session } from 'neo4j-driver';
 import { loadDotenv } from '../config/load-dotenv';
 
 loadDotenv();
@@ -17,6 +17,31 @@ const log = (message: string): void => {
  * empty, the demo would come back empty too — so the seed fails loudly rather than silently
  * producing a graph the recording cannot use.
  */
+type Row = Record<string, unknown>;
+
+/** Drawable queries return a single record holding `rows`, `nodes` and `links`. */
+async function rowsOf(
+  session: Session,
+  cypher: string,
+  params: Record<string, unknown>,
+): Promise<Row[]> {
+  const result = await session.run(cypher, params);
+  const first = result.records[0];
+  if (!first) return [];
+  if (first.keys.includes('rows')) return (first.get('rows') as Row[] | null) ?? [];
+  return result.records.map((record) => record.toObject() as Row);
+}
+
+const asNumber = (value: unknown): number =>
+  typeof value === 'number'
+    ? value
+    : Number((value as { toNumber?: () => number })?.toNumber?.() ?? 0);
+
+/**
+ * Verifies the planted patterns using the real production queries. If any of these come back empty
+ * the demo would come back empty too, so the seed fails loudly rather than quietly producing a graph
+ * the recording cannot use.
+ */
 async function verify(
   driver: Driver,
   scenario: ReturnType<typeof generate>['scenario'],
@@ -27,89 +52,84 @@ async function verify(
   const bidderB = scenario.bidders[1]!;
 
   try {
-    const owners = await session.run(QUERIES.beneficialOwners.cypher, {
-      companyId: bidderA.id,
-      maxDepth: int(5),
-      minPct: 0.01,
-    });
-    const ultimate = owners.records.find((r) => r.get('id') === scenario.ultimateOwner.id);
-    checks.push({
-      name: 'beneficial owner of bidder A',
-      ok: Boolean(ultimate),
-      detail: ultimate
-        ? `${ultimate.get('name')} at ${ultimate.get('effectivePct')}% via ${ultimate.get('shortestChain')} hops`
-        : 'ultimate owner not reachable',
-    });
+    for (const [label, bidder] of [
+      ['beneficial owner of bidder A', bidderA],
+      ['beneficial owner of bidder B', bidderB],
+    ] as const) {
+      const rows = await rowsOf(session, QUERIES.beneficialOwners.cypher, {
+        companyId: bidder.id,
+        maxDepth: int(5),
+        minPct: 0.01,
+      });
+      const ultimate = rows.find((r) => r['id'] === scenario.ultimateOwner.id);
+      checks.push({
+        name: label,
+        ok: Boolean(ultimate),
+        detail: ultimate
+          ? `${String(ultimate['name'])} at ${asNumber(ultimate['effectivePct'])}% via ${asNumber(ultimate['shortestChain'])} hops`
+          : 'ultimate owner not reachable',
+      });
+    }
 
-    const ownersB = await session.run(QUERIES.beneficialOwners.cypher, {
-      companyId: bidderB.id,
-      maxDepth: int(5),
-      minPct: 0.01,
-    });
-    const ultimateB = ownersB.records.find((r) => r.get('id') === scenario.ultimateOwner.id);
-    checks.push({
-      name: 'beneficial owner of bidder B',
-      ok: Boolean(ultimateB),
-      detail: ultimateB
-        ? `${ultimateB.get('name')} at ${ultimateB.get('effectivePct')}% via ${ultimateB.get('shortestChain')} hops`
-        : 'ultimate owner not reachable',
-    });
-
-    const link = await session.run(QUERIES.hiddenLink.cypher, {
+    const links = await rowsOf(session, QUERIES.hiddenLink.cypher, {
       fromId: bidderA.id,
       toId: bidderB.id,
       maxDepth: int(6),
     });
-    const viaHub = link.records.some((r) =>
-      (r.get('via') as string[]).some((t) => t === 'REGISTERED_IN' || t === 'CITIZEN_OF'),
+    const viaHub = links.some((r) =>
+      ((r['via'] as string[] | undefined) ?? []).some(
+        (t) => t === 'REGISTERED_IN' || t === 'CITIZEN_OF',
+      ),
     );
     checks.push({
       name: 'hidden link between bidders',
-      ok: link.records.length > 0 && !viaHub,
-      detail: link.records.length
-        ? `${link.records.length} path(s), shortest ${link.records[0]!.get('hops')} hops via ${(link.records[0]!.get('via') as string[]).join(' → ')}`
+      ok: links.length > 0 && !viaHub,
+      detail: links[0]
+        ? `${links.length} path(s), shortest ${asNumber(links[0]['hops'])} hops via ${((links[0]['via'] as string[]) ?? []).join(' → ')}`
         : 'no path found',
     });
 
-    const cycles = await session.run(QUERIES.ownershipCycles.cypher, { maxDepth: int(6) });
+    const cycles = await rowsOf(session, QUERIES.ownershipCycles.cypher, { maxDepth: int(6) });
     checks.push({
       name: 'ownership cycle',
-      ok: cycles.records.length > 0,
-      detail: cycles.records.length
-        ? `${cycles.records.length} ring(s); first: ${(cycles.records[0]!.get('ring') as string[]).join(' → ')}`
+      ok: cycles.length > 0,
+      detail: cycles[0]
+        ? `${cycles.length} ring(s); first: ${((cycles[0]['ring'] as string[]) ?? []).join(' → ')}`
         : 'no cycle found',
     });
 
-    const control = await session.run(QUERIES.watchlistControl.cypher, {
+    const control = await rowsOf(session, QUERIES.watchlistControl.cypher, {
       watchlistName: 'OFAC SDN',
       maxDepth: int(5),
       minPct: 0.05,
+      limit: int(25),
     });
     checks.push({
       name: 'watchlist control',
-      ok: control.records.length > 0,
-      detail: `${control.records.length} controlled companies`,
+      ok: control.length > 0,
+      detail: `${control.length} controlled companies`,
     });
 
-    const nominee = await session.run(QUERIES.nomineeUnmasking.cypher, {
+    const nominee = await rowsOf(session, QUERIES.nomineeUnmasking.cypher, {
       personId: scenario.nominee.id,
     });
+    const principal = nominee.find((r) => r['relation'] === 'NOMINEE_FOR');
     checks.push({
       name: 'nominee unmasking',
-      ok: nominee.records.length > 0,
-      detail: nominee.records.length
-        ? `${nominee.records[0]!.get('nominee')} acts for ${nominee.records[0]!.get('actuallyActingFor')}`
+      ok: Boolean(principal),
+      detail: principal
+        ? `${String(principal['nominee'])} acts for ${String(principal['other'])}`
         : 'nominee has no principal',
     });
 
-    const shared = await session.run(QUERIES.resolveEntity.cypher, {
+    const found = await rowsOf(session, QUERIES.resolveEntity.cypher, {
       term: 'Meridian',
       limit: int(5),
     });
     checks.push({
       name: 'full-text entity resolution',
-      ok: shared.records.length > 0,
-      detail: `${shared.records.length} matches for "Meridian"`,
+      ok: found.length > 0,
+      detail: `${found.length} matches for "Meridian"`,
     });
   } finally {
     await session.close();

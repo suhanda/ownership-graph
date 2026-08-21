@@ -5,13 +5,14 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev": "pnpm build:shared && pnpm --parallel --filter \"./apps/*\" dev",
     "dev:api": "pnpm --filter @ownership/api dev",
     "dev:web": "pnpm --filter @ownership/web dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm build:shared && pnpm -r typecheck",
     "format": "prettier --write .",
-    "seed": "pnpm --filter @ownership/api seed"
+    "seed": "pnpm build:shared && pnpm --filter @ownership/api seed",
+    "build:shared": "pnpm --filter @ownership/shared build"
   },
   "devDependencies": {
     "prettier": "3.6.2",
