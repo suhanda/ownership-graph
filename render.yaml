@@ -8,7 +8,7 @@ services:
     name: ownership-graph-api
     runtime: node
     plan: free
-    # The CognoDB instance resolves to <redacted> — Washington DC (Google Cloud). Round-trip
+    # The CognoDB instance is hosted in Washington DC (Google Cloud). Round-trip
     # from a development machine in Asia is 234ms, which is precisely the query floor observed
     # throughout development. Co-locating the API removes that from every single query.
     region: virginia

@@ -79,7 +79,7 @@ for a submission that must stay up.
 
 **Fly** — set secrets with `fly secrets set COGNODB_URI=… COGNODB_PASSWORD=… ANTHROPIC_API_KEY=…`;
 they are injected as environment variables, which is what `config/env.ts` already reads. Pin the app
-region close to CognoDB (`db-<id>.<cluster>.…`) to keep the ~240 ms query floor from growing.
+region close to the CognoDB instance to keep the ~240 ms query floor from growing.
 
 **Vercel** — environment variables are scoped per environment (Production / Preview / Development) and
 capped at 64 KB total. The gotcha worth remembering: **changes only apply to new deployments** — editing
@@ -112,7 +112,7 @@ give Fly a cheaper liveness route and keep `/health` for the UI.
 is ~744 hours — enough for exactly one always-on service. Putting only the API on Render lets a
 keep-warm ping hold it awake within quota, and keeps Next.js server-rendering off a 0.1 CPU box.
 
-**Region matters more than expected.** The CognoDB instance resolves to `<redacted>` — Washington
+**Region matters more than expected.** The CognoDB instance resolves to an address in Washington
 DC, Google Cloud. Round-trip from the development machine is **234 ms**, which is exactly the query
 floor seen throughout development: `resolveEntity` and `neighbourhood` both measured ~240 ms end to
 end. That floor is network latency, not database work. Running the API in Render's **virginia** region

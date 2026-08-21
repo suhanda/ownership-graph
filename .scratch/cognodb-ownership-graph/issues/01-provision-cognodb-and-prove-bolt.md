@@ -80,7 +80,7 @@ wearing a different name, and the differences change what later tickets are allo
 
 |                       |                                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------------------ |
-| URI                   | `bolt+s://db-<id>.<cluster>.databases.cognodb.com` (port 7687 implied)                                 |
+| URI                   | `bolt+s://db-<id>.<cluster>.databases.cognodb.com` (port 7687 implied) — real value in `~/.cognodb.env`                                 |
 | Credentials           | `~/.cognodb.env`, mode 0600, outside the repo. Vars: `COGNODB_URI`, `COGNODB_USER`, `COGNODB_PASSWORD` |
 | Server agent          | `Neo4j/5.26.0`                                                                                         |
 | Negotiated Bolt       | **5.4** (top of the documented 5.0–5.4 range)                                                          |
