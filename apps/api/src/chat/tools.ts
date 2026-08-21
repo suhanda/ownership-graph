@@ -151,6 +151,25 @@ export function buildTools(graph: GraphService, emit: (event: ChatEvent) => void
     }),
 
     betaZodTool({
+      name: 'suggest_followups',
+      description:
+        'Offer the user two or three next questions, as clickable suggestions. Call this once at the ' +
+        'end of every answer. Base them on what is currently on the canvas and what you just found — ' +
+        'a good suggestion names a specific entity and asks something this graph can actually answer.',
+      inputSchema: z.object({
+        questions: z
+          .array(z.string().min(8).max(90))
+          .min(2)
+          .max(3)
+          .describe('Short questions in the user voice, each naming a real entity.'),
+      }),
+      run: (args) => {
+        emit({ type: 'suggestions', questions: args.questions });
+        return 'Suggestions shown to the user. Do not repeat them in your reply.';
+      },
+    }),
+
+    betaZodTool({
       name: 'draw_on_canvas',
       description:
         'Draw a set of entities on the graph canvas beside this conversation, showing how they ' +
@@ -294,6 +313,10 @@ by hundreds of companies is weak evidence; a director shared by exactly two is s
 
 If a question cannot be answered with your tools, say so plainly in one sentence and name what you can \
 answer instead. Do not answer from general knowledge and do not speculate.
+
+End every answer by calling suggest_followups with two or three next questions, drawn from what is on \
+the canvas and what you just found. Name specific entities — "Who else uses PO Box 3151, Road Town?" \
+is useful, "Tell me more" is not. They are shown as buttons, so do not list them in your reply too.
 
 Be concise — two or three sentences unless asked for more.`;
 

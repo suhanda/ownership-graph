@@ -52,6 +52,8 @@ export function ChatPanel({
   canvas?: CanvasState;
 }) {
   const [entries, setEntries] = useState<Entry[]>([]);
+  /** Model-generated, grounded in the current canvas. Falls back to the static list until one arrives. */
+  const [followups, setFollowups] = useState<string[] | null>(null);
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const log = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ export function ChatPanel({
   async function ask(question: string) {
     if (!question.trim() || busy) return;
     setValue('');
+    setFollowups(null);
     push({ kind: 'you', text: question });
     setBusy(true);
 
@@ -137,7 +140,7 @@ export function ChatPanel({
               return next;
             });
           } else if (event.type === 'suggestions') {
-            push({ kind: 'notice', text: `Try: ${event.questions.slice(0, 3).join(' · ')}` });
+            setFollowups(event.questions);
           } else if (event.type === 'error') {
             push({ kind: 'notice', text: event.message });
           }
@@ -209,9 +212,9 @@ export function ChatPanel({
         })}
       </div>
 
-      {entries.length === 0 ? (
+      {!busy && (followups ?? (entries.length === 0 ? SUGGESTIONS : [])).length > 0 ? (
         <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-          {SUGGESTIONS.map((s) => (
+          {(followups ?? SUGGESTIONS).map((s) => (
             <button
               key={s}
               onClick={() => void ask(s)}
