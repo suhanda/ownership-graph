@@ -11,8 +11,15 @@ import { KIND_STYLE, readToken } from './tokens';
 
 echarts.use([GraphChart, CanvasRenderer, TooltipComponent, LegendComponent]);
 
-/** Ownership and nominee edges carry the argument; the rest is context and recedes. */
-const EMPHASISED: ReadonlySet<string> = new Set(['OWNS', 'NOMINEE_FOR']);
+/**
+ * Edges are differentiated by hue, dash and weight — never by fading out. An earlier version drew
+ * everything except OWNS in the `--border` token at 55% opacity, which measures 1.33:1 against the
+ * card: invisible. Worse, on the hidden-link view those "context" edges are the entire finding.
+ *
+ * Only jurisdiction and citizenship recede, because they are Hubs: shared by everything, evidence
+ * of nothing.
+ */
+const HUB_EDGES: ReadonlySet<string> = new Set(['REGISTERED_IN', 'CITIZEN_OF']);
 const KINDS = Object.keys(KIND_STYLE) as NodeKind[];
 
 export interface GraphCanvasProps {
@@ -57,6 +64,7 @@ export function GraphCanvas({
     const line = readToken('--border');
     const surface = readToken('--card');
     const primary = readToken('--primary');
+    const ochre = readToken('--chart-2');
     const risk = readToken('--chart-3');
     const focus = new Set(focusIds);
 
@@ -93,8 +101,19 @@ export function GraphCanvas({
       };
     });
 
+    const edgeStyle = (
+      type: string,
+    ): { color: string; width: number; opacity: number; dashed: boolean } => {
+      if (type === 'OWNS') return { color: primary, width: 2.4, opacity: 1, dashed: false };
+      // A nominee is the gap between the registered and the real owner — dashed reads as indirect.
+      if (type === 'NOMINEE_FOR') return { color: ochre, width: 2.2, opacity: 1, dashed: true };
+      if (HUB_EDGES.has(type)) return { color: muted, width: 1, opacity: 0.35, dashed: false };
+      // Shared address, agent, officer: on the hidden-link question these carry the answer.
+      return { color: muted, width: 1.8, opacity: 0.85, dashed: false };
+    };
+
     const links = graph.links.map((link: GraphLink) => {
-      const strong = EMPHASISED.has(link.type);
+      const style = edgeStyle(link.type);
       return {
         source: link.source,
         target: link.target,
@@ -103,14 +122,17 @@ export function GraphCanvas({
           formatter: () => `${Math.round((link.pct ?? 0) * 100)}%`,
           fontSize: 11,
           fontFamily: 'var(--font-mono), monospace',
-          color: muted,
+          color: ink,
+          backgroundColor: surface,
+          padding: [1, 3] as [number, number],
+          borderRadius: 3,
         },
         lineStyle: {
-          color: strong ? primary : line,
-          width: strong ? 2 : 1,
-          opacity: strong ? 0.9 : 0.55,
+          color: style.color,
+          width: style.width,
+          opacity: style.opacity,
           curveness: 0,
-          type: link.type === 'NOMINEE_FOR' ? ('dashed' as const) : ('solid' as const),
+          type: style.dashed ? ('dashed' as const) : ('solid' as const),
         },
         __type: link.type,
       };
@@ -182,7 +204,7 @@ export function GraphCanvas({
             labelLayout: { hideOverlap: true },
             emphasis: { focus: 'adjacency' as const, label: { show: true } },
             edgeSymbol: ['none', 'arrow'],
-            edgeSymbolSize: 7,
+            edgeSymbolSize: 8,
             categories,
             data: nodes,
             edges: links,
