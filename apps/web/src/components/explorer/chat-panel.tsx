@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { API_URL } from '@/lib/api';
+import { Markdown } from './markdown';
 
 type Entry =
   | { kind: 'you'; text: string }
@@ -189,7 +190,7 @@ export function ChatPanel({ onGraph }: { onGraph: (graph: GraphPayload, label: s
                     : 'rounded-bl-sm border border-border bg-secondary'
                 }`}
               >
-                {entry.text}
+                {entry.kind === 'claude' ? <Markdown>{entry.text}</Markdown> : entry.text}
               </div>
             </div>
           );
